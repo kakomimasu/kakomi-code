@@ -1,0 +1,26 @@
+{
+  "nodeModulesDir": "auto",
+  "exclude": ["desktop/alpine.js"],
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.0",
+    "@std/path": "jsr:@std/path@^1.0.0",
+    "@kakomimasu/client-js": "jsr:@kakomimasu/client-js@^0.1.0",
+    "@kakomimasu/client-deno": "https://raw.githubusercontent.com/kakomimasu/client-deno/main/KakomimasuClient.ts",
+    "monaco-editor": "npm:monaco-editor@^0.56.0"
+  },
+  "tasks": {
+    "desktop": "deno desktop --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/version_manager.ts --include desktop/assets --include node_modules/monaco-editor/min desktop/app.ts",
+    "desktop:mac": "deno desktop --output Kakomimasu.app --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/version_manager.ts --include desktop/assets --include node_modules/monaco-editor/min desktop/app.ts",
+    "desktop:windows": "deno desktop --icon desktop/assets/app-icon.ico --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/version_manager.ts --include desktop/assets --include node_modules/monaco-editor/min desktop/app.ts",
+    "check": "deno check desktop/app.ts desktop/version_manager.ts desktop/chat_history.ts",
+    "test": "deno test --allow-env --allow-read --allow-write test"
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "compilerOptions": {
+    "lib": ["dom", "esnext", "deno.ns"]
+  }
+}

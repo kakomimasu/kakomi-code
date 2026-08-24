@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="囲みマスを始める人のための、Deno / TypeScript 製 AI スターターキット。">
+    <title>囲みコード — 囲みマスAIコーディングツール</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="囲みコード トップ">
+        <img class="brand-icon" src="./app-icon.png" alt="">
+        <span>囲みコード</span>
+      </a>
+      <nav aria-label="ページ内ナビゲーション">
+        <a href="#features">できること</a>
+        <a href="#start">はじめかた</a>
+        <a class="nav-cta" href="https://github.com/ninja03/kakomi-code">GitHub へ</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <h1 id="hero-title">アイデアひとつで<br><em>対戦に参加しよう。</em></h1>
+          <p class="lead">囲みマスを始める人のための AIコーディングツール。<br>あなたの作戦をすぐ対戦へ。</p>
+          <p class="requirement">必要なのは <strong>Deno</strong> だけ。</p>
+        </div>
+      </section>
+
+      <section class="features" id="features" aria-labelledby="features-title">
+        <div class="section-heading">
+          <h2 id="features-title">できること</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span class="feature-number">01</span>
+            <h3>すぐに動かせる</h3>
+            <p>Deno を入れたら、同梱のサンプル戦略でそのままスタート。最初から API を覚える必要はありません。</p>
+          </article>
+          <article>
+            <span class="feature-number">02</span>
+            <h3>チャットでメッセージを送るだけ</h3>
+            <p>作戦のアイデアを日本語で伝えるだけ。Codex や Claude Code と一緒に、コードを改善できます。</p>
+          </article>
+          <article>
+            <span class="feature-number">03</span>
+            <h3>エージェントを複数管理できる</h3>
+            <p>作戦ごとにエージェントを分けて保存。思いついたアイデアを並行して育て、いつでも対戦で試せます。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="start" id="start" aria-labelledby="start-title">
+        <div>
+          <h2 id="start-title">はじめかた</h2>
+        </div>
+        <ol class="steps">
+          <li><span>1</span><div><h3>Deno をインストール</h3><p>はじめての方も、公式の案内に沿って準備できます。</p></div><a href="https://docs.deno.com/runtime/getting_started/installation/" aria-label="Deno のインストール方法を開く">↗</a></li>
+          <li><span>2</span><div><h3>このリポジトリを取得</h3><p>ターミナルで次のコマンドを実行します。</p><code>git clone https://github.com/ninja03/kakomi-code.git</code></div></li>
+          <li><span>3</span><div><h3>囲みコードを起動</h3><p>macOS / Linux では <code>run.sh</code>、Windows では <code>run.bat</code> を実行します。</p></div></li>
+          <li><span>4</span><div><h3>チャットで作戦を入力</h3><p>「ランダムに配置して、ランダムに移動する作戦にしよう」と送ってみましょう。</p></div></li>
+          <li><span>5</span><div><h3>「対戦を始める」をクリック</h3><p>作成したエージェントで、さっそく対戦を始められます。</p></div></li>
+        </ol>
+      </section>
+
+    </main>
+
+    <footer>
+      <a class="brand" href="#top"><img class="brand-icon" src="./app-icon.png" alt=""><span>囲みコード</span></a>
+      <a href="https://kakomimasu.com/">囲みマス公式サイト ↗</a>
+    </footer>
+  </body>
+</html>
