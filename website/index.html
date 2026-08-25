@@ -9,29 +9,24 @@
     <link rel="stylesheet" href="./style.css">
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="#top" aria-label="囲みコード トップ">
-        <img class="brand-icon" src="./app-icon.png" alt="">
-        <span>囲みコード</span>
-      </a>
-      <nav aria-label="ページ内ナビゲーション">
-        <a href="#features">できること</a>
-        <a href="#start">はじめかた</a>
-        <a class="nav-official" href="https://kakomimasu.com/">囲みマス公式</a>
-        <a class="nav-cta" href="https://github.com/kakomimasu/kakomi-code">GitHub へ</a>
-      </nav>
-    </header>
-
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
+          <div class="hero-product" aria-label="囲みコード">
+            <img src="./app-icon.png" alt="" width="48" height="48">
+            <span>囲みコード</span>
+          </div>
           <h1 id="hero-title">アイデアひとつで<br><em>競技に参加しよう。</em></h1>
           <p
             class="lead">囲みマスを始める人のための AIコーディングツール。<br>あなたの作戦をすぐ対戦へ。</p>
-          <p class="requirement">
+          <a class="requirement" href="https://deno.com/">
             <img src="./deno-icon.svg" alt="" width="34" height="34">
             <span>必要なのは <strong>Deno</strong> だけ。</span>
-          </p>
+          </a>
+          <nav class="hero-links" aria-label="関連リンク">
+            <a href="https://kakomimasu.com/">囲みマス公式</a>
+            <a href="https://github.com/kakomimasu/kakomi-code">GitHub</a>
+          </nav>
         </div>
         <figure class="hero-shot">
           <img src="./kakomi-code-to-match.png"
@@ -77,10 +72,6 @@
       </section>
     </main>
 
-    <footer>
-      <a class="brand"
-        href="#top"><img class="brand-icon" src="./app-icon.png" alt=""><span>囲みコード</span></a>
-    </footer>
     <script>
     document.querySelectorAll("[data-copy-target]").forEach((button) => {
       button.addEventListener("click", async () => {
