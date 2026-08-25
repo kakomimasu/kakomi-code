@@ -65,6 +65,10 @@ function slugify(label: string): string {
     .replace(/^-|-$/g, "") || "エルメマス";
 }
 
+function versionLabel(label: string): string {
+  return [...slugify(label)].slice(0, 40).join("");
+}
+
 /** Prepare a fresh clone without recreating versions that the user deleted later. */
 export async function initializeProject(projectDir: string): Promise<void> {
   const project = resolve(projectDir);
@@ -104,7 +108,7 @@ export async function createVersion(
     1,
     ...versions.map((version) => Number(version.name.match(VERSION_PATTERN)?.[1] ?? 0)),
   ) + 1;
-  const agentName = [...slugify(label)].slice(0, 40).join("");
+  const agentName = versionLabel(label);
   const name = `v${String(next).padStart(3, "0")}-${agentName}`;
   const target = join(versionsDir, name);
 
@@ -137,7 +141,7 @@ export async function renameVersion(
     (currentName === BASE_VERSION_NAME ? "001" : undefined);
   if (!number) throw new Error("バージョン番号を取得できませんでした。");
 
-  const name = `v${number}-${slugify(label).slice(0, 40)}`;
+  const name = `v${number}-${versionLabel(label)}`;
   const renamed = join(dirname(target), name);
   if (renamed === target) return { name, path: renamed, ready: true };
   if (await exists(renamed)) throw new Error("同じ名前のバージョンがすでにあります。");

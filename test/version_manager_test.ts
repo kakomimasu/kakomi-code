@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import {
   BASE_VERSION_NAME,
@@ -7,6 +7,7 @@ import {
   initializeProject,
   listVersions,
   renameVersion,
+  validateVersion,
 } from "../desktop/version_manager.ts";
 
 Deno.test("fresh cloneではtemplateから最初の版を初期化する", async () => {
@@ -175,6 +176,125 @@ Deno.test("999から1000をまたいでもバージョン番号順に並べる",
       "v999-九百九十九",
       "v1000-千",
     ]);
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("管理対象外のディレクトリを一覧から除外しmain.tsの有無を返す", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    const versionsDir = join(projectDir, "versions");
+    await Deno.mkdir(join(versionsDir, BASE_VERSION_NAME), { recursive: true });
+    await Deno.mkdir(join(versionsDir, "v002-準備中"));
+    await Deno.mkdir(join(versionsDir, "自由な名前"));
+    await Deno.writeTextFile(join(versionsDir, "メモ.txt"), "not a version\n");
+
+    assertEquals(await listVersions(projectDir), [
+      {
+        name: BASE_VERSION_NAME,
+        path: join(versionsDir, BASE_VERSION_NAME),
+        ready: false,
+      },
+      {
+        name: "v002-準備中",
+        path: join(versionsDir, "v002-準備中"),
+        ready: false,
+      },
+    ]);
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("テンプレートがないfresh cloneは中途半端なversionsを作らない", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    await assertRejects(
+      () => initializeProject(projectDir),
+      Error,
+      "新規エージェント用のテンプレートがありません。",
+    );
+    await assertRejects(() => Deno.stat(join(projectDir, "versions")), Deno.errors.NotFound);
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("版名のファイル名に使えない文字と空白を安全な名前へ変換する", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(join(projectDir, "template"));
+    await Deno.writeTextFile(join(projectDir, "template", "main.ts"), "// template\n");
+
+    const sanitized = await createVersion(projectDir, "  危険な/名前?  ");
+    const fallback = await createVersion(projectDir, "  ");
+
+    assertEquals(sanitized.name, "v002-危険な-名前");
+    assertEquals(fallback.name, "v003-エルメマス");
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("名前変更では絵文字を途中で分割せず40文字まで保持する", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    const versionDir = join(projectDir, "versions", "v007-変更前");
+    await Deno.mkdir(versionDir, { recursive: true });
+    await Deno.writeTextFile(join(versionDir, "main.ts"), "// agent\n");
+    const label = `先頭${"🤖".repeat(38)}末尾`;
+
+    const renamed = await renameVersion(projectDir, versionDir, label);
+
+    assertEquals(renamed.name, `v007-${[...label].slice(0, 40).join("")}`);
+    assertEquals(renamed.name.includes("�"), false);
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("名前変更先が存在する場合は元の版を維持する", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    const source = join(projectDir, "versions", "v007-変更前");
+    const destination = join(projectDir, "versions", "v007-使用中");
+    await Deno.mkdir(source, { recursive: true });
+    await Deno.mkdir(destination);
+    await Deno.writeTextFile(join(source, "main.ts"), "// source\n");
+    await Deno.writeTextFile(join(destination, "main.ts"), "// destination\n");
+
+    await assertRejects(
+      () => renameVersion(projectDir, source, "使用中"),
+      Error,
+      "同じ名前のバージョンがすでにあります。",
+    );
+    assertEquals(await Deno.readTextFile(join(source, "main.ts")), "// source\n");
+    assertEquals(await Deno.readTextFile(join(destination, "main.ts")), "// destination\n");
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("versionsの外にある版は検証も削除も拒否する", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(join(projectDir, "versions"));
+    const outside = join(projectDir, "outside", "v002-外部");
+    await Deno.mkdir(outside, { recursive: true });
+    await Deno.writeTextFile(join(outside, "main.ts"), "// outside\n");
+
+    await assertRejects(
+      () => validateVersion(projectDir, outside),
+      Error,
+      "versions配下の有効なバージョンを選択してください",
+    );
+    await assertRejects(
+      () => deleteVersion(projectDir, outside),
+      Error,
+      "versions配下の有効なバージョンを選択してください",
+    );
+    assertEquals(await Deno.readTextFile(join(outside, "main.ts")), "// outside\n");
   } finally {
     await Deno.remove(projectDir, { recursive: true });
   }
