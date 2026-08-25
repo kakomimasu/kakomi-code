@@ -4,5 +4,3 @@
 *.dylib
 node_modules/
 versions/*
-!versions/エルメマス1号/
-!versions/エルメマス1号/main.ts
