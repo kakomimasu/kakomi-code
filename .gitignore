@@ -2,5 +2,9 @@
 .DS_Store
 *.app/
 *.dylib
+*.dll
+*.so
+/app
+/app.exe
 node_modules/
 versions/*
