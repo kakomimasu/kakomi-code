@@ -34,7 +34,9 @@ export async function listVersions(projectDir: string): Promise<VersionInfo[]> {
   return versions.sort((a, b) => {
     if (a.name === BASE_VERSION_NAME) return -1;
     if (b.name === BASE_VERSION_NAME) return 1;
-    return a.name.localeCompare(b.name);
+    const aNumber = Number(a.name.match(VERSION_PATTERN)?.[1] ?? 0);
+    const bNumber = Number(b.name.match(VERSION_PATTERN)?.[1] ?? 0);
+    return aNumber === bNumber ? a.name.localeCompare(b.name) : aNumber - bNumber;
   });
 }
 

@@ -113,7 +113,8 @@
                 </template>
                 <template x-if="log.kind === 'tool'">
                   <section class="coding-log">
-                    <details class="coding-log-tool" x-init="$el.open = log.status === 'in_progress'"
+                    <details class="coding-log-tool"
+                      x-init="$el.open = log.status === 'in_progress'"
                       x-on:toggle="closeOtherCodingTools($event)">
                       <summary>
                         <span class="coding-log-summary-main">
@@ -179,7 +180,8 @@
                   <path d="M12 18V6"></path>
                 </svg>
                 <svg x-show="codingAgentRunning" viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"></rect>
+                  <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"
+                    stroke="none"></rect>
                 </svg>
               </button>
             </div>

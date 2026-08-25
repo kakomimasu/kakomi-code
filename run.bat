@@ -11,7 +11,9 @@ if errorlevel 1 (
 )
 
 echo 囲みコードをビルドして起動します…
-call deno task desktop:windows
+set "ENV_ARG="
+if exist ".env" set "ENV_ARG=--env-file=.env"
+call deno task %ENV_ARG% desktop:windows
 if errorlevel 1 (
   echo ビルドに失敗しました。
   pause

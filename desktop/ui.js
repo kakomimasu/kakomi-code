@@ -1,7 +1,12 @@
+const apiToken = document.querySelector('meta[name="kakomi-api-token"]')?.content || "";
+
 async function call(name, args = []) {
   const response = await fetch("/api/bindings/" + encodeURIComponent(name), {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-kakomi-api-token": apiToken,
+    },
     body: JSON.stringify({ args }),
   });
   const text = await response.text();

@@ -160,3 +160,22 @@ Deno.test("1000以降の版も一覧と連番の対象になる", async () => {
     await Deno.remove(projectDir, { recursive: true });
   }
 });
+
+Deno.test("999から1000をまたいでもバージョン番号順に並べる", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    for (const name of ["v1000-千", "v999-九百九十九", "v010-十"]) {
+      const versionDir = join(projectDir, "versions", name);
+      await Deno.mkdir(versionDir, { recursive: true });
+      await Deno.writeTextFile(join(versionDir, "main.ts"), `// ${name}\n`);
+    }
+
+    assertEquals((await listVersions(projectDir)).map((version) => version.name), [
+      "v010-十",
+      "v999-九百九十九",
+      "v1000-千",
+    ]);
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});

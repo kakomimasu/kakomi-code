@@ -6,15 +6,35 @@ import { type ActionPost, KakomimasuClient } from "@kakomimasu/client-deno";
 
 const aiName = Deno.env.get("AI_NAME");
 const boardName = Deno.env.get("AI_BOARD");
+const matchMode = Deno.env.get("MATCH_MODE") || "free";
+const gameId = Deno.env.get("GAME_ID");
+const host = Deno.env.get("KAKOMIMASU_HOST");
+const bearerToken = Deno.env.get("BEARER_TOKEN");
+
+if (matchMode === "ai" && (!aiName || !boardName)) {
+  throw new Error("MATCH_MODE=ai では AI_NAME と AI_BOARD が必要です。");
+}
+if (matchMode === "game" && !gameId) {
+  throw new Error("MATCH_MODE=game では GAME_ID が必要です。");
+}
+
+const player = bearerToken
+  ? { bearerToken }
+  : { name: Deno.env.get("AGENT_NAME") || "エルメマス", spec: "囲みコード" };
+const match = matchMode === "ai"
+  ? { aiName: aiName as never, boardName: boardName as never }
+  : matchMode === "game"
+  ? { gameId: gameId as string }
+  : {};
 
 export const client = new KakomimasuClient({
-  name: Deno.env.get("AGENT_NAME") || "エルメマス",
-  spec: "囲みコード",
-  ...(aiName ? { aiName: aiName as never, boardName: boardName as never } : {}),
+  ...player,
+  ...match,
+  ...(host ? { host } : {}),
 });
 
 // Desktopの練習対戦では、対戦画面へのリンクを表示する。
-if (aiName) {
+if (matchMode === "ai") {
   const api = client.apiClient as {
     joinAiMatch: (...args: unknown[]) => Promise<{ gameId?: string }>;
   };

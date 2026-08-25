@@ -1,5 +1,6 @@
 import { join } from "@std/path";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
+import { hasValidApiToken, isTrustedLoopbackRequest } from "./http_security.ts";
 import {
   createVersion,
   deleteVersion,
@@ -13,6 +14,9 @@ const userHome = Deno.env.get("HOME") ?? Deno.cwd();
 const settingsDir = join(userHome, ".kakomimasu-ai-starter");
 const projectFile = join(settingsDir, "project-dir.txt");
 const chatHistoryFile = join(settingsDir, "chat-history.json");
+const apiToken = crypto.randomUUID();
+const MAX_CAPTURED_OUTPUT_CHARACTERS = 1_000_000;
+const MAX_LOG_TEXT_CHARACTERS = 12_000;
 
 type Settings = {
   agentName: string;
@@ -246,7 +250,10 @@ window.addEventListener("close", () => {
 function addMatchLog(message: string) {
   const matchUrl = message.match(/VIEWER_URL=(https:\/\/kakomimasu\.com\/game\?id=[^\s]+)/)?.[1];
   if (matchUrl) viewerUrl = matchUrl;
-  matchLogs.push(`${new Date().toLocaleTimeString("ja-JP")}  ${message}`);
+  const text = message.length > MAX_LOG_TEXT_CHARACTERS
+    ? `${message.slice(0, MAX_LOG_TEXT_CHARACTERS)}\n…（長すぎるため省略）`
+    : message;
+  matchLogs.push(`${new Date().toLocaleTimeString("ja-JP")}  ${text}`);
   if (matchLogs.length > 500) matchLogs.shift();
 }
 
@@ -265,12 +272,24 @@ function stringifyLogValue(value: unknown, limit = 12_000): string {
   return text.length > limit ? `${text.slice(0, limit)}\n…（長すぎるため省略）` : text;
 }
 
+function appendCapturedOutput(current: string, text: string): string {
+  if (current.length >= MAX_CAPTURED_OUTPUT_CHARACTERS) return current;
+  return current + text.slice(0, MAX_CAPTURED_OUTPUT_CHARACTERS - current.length);
+}
+
 function rebuildCodingAgentLogIndexes() {
   codingAgentLogIndexes.clear();
   codingAgentLogs.forEach((log, index) => codingAgentLogIndexes.set(log.id, index));
 }
 
 function upsertCodingAgentLog(log: CodingAgentLog) {
+  log = {
+    ...log,
+    text: stringifyLogValue(log.text, MAX_LOG_TEXT_CHARACTERS),
+    detail: log.detail === undefined
+      ? undefined
+      : stringifyLogValue(log.detail, MAX_LOG_TEXT_CHARACTERS),
+  };
   const existingIndex = codingAgentLogIndexes.get(log.id);
   if (existingIndex !== undefined) {
     codingAgentLogs[existingIndex] = { ...codingAgentLogs[existingIndex], ...log };
@@ -285,7 +304,7 @@ function upsertCodingAgentLog(log: CodingAgentLog) {
 }
 
 function addCodingAgentStatus(message: string) {
-  const text = message.trimEnd();
+  const text = stringifyLogValue(message.trimEnd(), MAX_LOG_TEXT_CHARACTERS);
   if (!text.trim()) return;
   upsertCodingAgentLog({
     id: `status-${++codingAgentStatusId}`,
@@ -532,20 +551,24 @@ async function captureCodingAgentJson(
       if (agent === "codex") handleCodexEvent(record, state);
       else handleClaudeEvent(record, state);
     } catch {
-      state.unparsedOutput += `${trimmed}\n`;
+      state.unparsedOutput = appendCapturedOutput(state.unparsedOutput, `${trimmed}\n`);
       addCodingAgentStatus(trimmed);
     }
   };
   for await (const chunk of stream) {
     const text = decoder.decode(chunk, { stream: true });
-    state.rawOutput += text;
+    state.rawOutput = appendCapturedOutput(state.rawOutput, text);
     state.buffer += text;
+    if (state.buffer.length > MAX_CAPTURED_OUTPUT_CHARACTERS) {
+      handleLine(`${state.buffer.slice(0, MAX_LOG_TEXT_CHARACTERS)}\n…（長すぎるため省略）`);
+      state.buffer = "";
+    }
     const lines = state.buffer.split(/\r?\n/);
     state.buffer = lines.pop() || "";
     lines.forEach(handleLine);
   }
   const remaining = decoder.decode();
-  state.rawOutput += remaining;
+  state.rawOutput = appendCapturedOutput(state.rawOutput, remaining);
   state.buffer += remaining;
   if (state.buffer) handleLine(state.buffer);
   return state.rawOutput;
@@ -560,11 +583,11 @@ async function captureOutput(
   let output = "";
   for await (const chunk of stream) {
     const text = decoder.decode(chunk, { stream: true });
-    output += text;
+    output = appendCapturedOutput(output, text);
     if (text) onChunk(`[${label}] ${text}`);
   }
   const remaining = decoder.decode();
-  output += remaining;
+  output = appendCapturedOutput(output, remaining);
   if (remaining) onChunk(`[${label}] ${remaining}`);
   return output;
 }
@@ -677,9 +700,25 @@ expose("startMatch", async (value: unknown) => {
 
   matchLogs.splice(0);
   viewerUrl = "";
+  let networkTarget: string;
+  try {
+    const host = new URL(Deno.env.get("KAKOMIMASU_HOST") || "https://api.kakomimasu.com");
+    if (host.protocol !== "https:" && host.protocol !== "http:") throw new Error();
+    networkTarget = host.host;
+  } catch {
+    throw new Error("KAKOMIMASU_HOSTにはHTTPまたはHTTPSのURLを指定してください。");
+  }
   addMatchLog(`main.ts ${versionDir.split("/").at(-1) ?? versionDir} を起動します。`);
   const process = new Deno.Command("deno", {
-    args: ["run", "-A", join(versionDir, "main.ts")],
+    args: [
+      "run",
+      "--cached-only",
+      "--no-prompt",
+      `--allow-read=${versionDir}`,
+      `--allow-net=${networkTarget}`,
+      "--allow-env=AGENT_NAME,MATCH_MODE,AI_NAME,AI_BOARD,KAKOMIMASU_HOST,BEARER_TOKEN,GAME_ID",
+      join(versionDir, "main.ts"),
+    ],
     cwd: versionDir,
     stdout: "piped",
     stderr: "piped",
@@ -823,8 +862,6 @@ expose("improveWithAgent", async (value: unknown) => {
 });
 
 const assets = new Map([
-  ["/", ["index.html", "text/html; charset=utf-8"]],
-  ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/style.css", ["style.css", "text/css; charset=utf-8"]],
   ["/ui.js", ["ui.js", "text/javascript; charset=utf-8"]],
   ["/alpine.js", ["alpine.js", "text/javascript; charset=utf-8"]],
@@ -835,10 +872,16 @@ const assets = new Map([
 
 Deno.serve({ hostname: "127.0.0.1" }, async (request) => {
   const url = new URL(request.url);
+  const origin = request.headers.get("origin");
+  if (!isTrustedLoopbackRequest(url, origin)) {
+    return new Response("Forbidden", { status: 403 });
+  }
   if (request.method === "POST" && url.pathname.startsWith("/api/bindings/")) {
-    const origin = request.headers.get("origin");
     const contentType = request.headers.get("content-type") ?? "";
-    if ((origin && origin !== url.origin) || !contentType.startsWith("application/json")) {
+    if (
+      !hasValidApiToken(request.headers, apiToken) ||
+      !contentType.startsWith("application/json")
+    ) {
       return Response.json({ error: "許可されていないリクエストです。" }, { status: 403 });
     }
     try {
@@ -853,6 +896,16 @@ Deno.serve({ hostname: "127.0.0.1" }, async (request) => {
         status: 400,
       });
     }
+  }
+  if (url.pathname === "/" || url.pathname === "/index.html") {
+    const html = await Deno.readTextFile(new URL("./index.html", import.meta.url));
+    const bootstrap = `<meta name="kakomi-api-token" content="${apiToken}">`;
+    return new Response(html.replace("</head>", `  ${bootstrap}\n  </head>`), {
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/html; charset=utf-8",
+      },
+    });
   }
   if (url.pathname.startsWith("/monaco/")) {
     let relativePath = "";

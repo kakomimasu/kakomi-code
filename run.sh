@@ -11,10 +11,14 @@ if ! command -v deno >/dev/null 2>&1; then
 fi
 
 echo "囲みコードをビルドして起動します…"
+ENV_ARGS=()
+if [[ -f ".env" ]]; then
+  ENV_ARGS=(--env-file=.env)
+fi
 if [[ "${OSTYPE:-}" == darwin* ]]; then
-  deno task desktop:mac
+  deno task "${ENV_ARGS[@]}" desktop:mac
 else
-  deno task desktop
+  deno task "${ENV_ARGS[@]}" desktop
 fi
 
 if [[ "${OSTYPE:-}" == darwin* ]] && [[ -d "Kakomimasu.app" ]]; then

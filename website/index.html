@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="囲みマスを始める人のための、Deno / TypeScript 製 AI スターターキット。">
+    <meta name="description"
+      content="囲みマスを始める人のための、Deno / TypeScript 製 AI スターターキット。">
     <title>囲みコード — 囲みマスAIコーディングツール</title>
     <link rel="stylesheet" href="./style.css">
   </head>
@@ -25,11 +26,14 @@
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
           <h1 id="hero-title">アイデアひとつで<br><em>競技に参加しよう。</em></h1>
-          <p class="lead">囲みマスを始める人のための AIコーディングツール。<br>あなたの作戦をすぐ対戦へ。</p>
+          <p
+            class="lead">囲みマスを始める人のための AIコーディングツール。<br>あなたの作戦をすぐ対戦へ。</p>
           <p class="requirement">必要なのは <strong>Deno</strong> だけ。</p>
         </div>
         <figure class="hero-shot">
-          <img src="./kakomi-code-to-match.png" alt="囲みコードでAIと作戦を改善し、囲みマスで対戦結果を確認している画面" width="1535" height="1024">
+          <img src="./kakomi-code-to-match.png"
+            alt="囲みコードでAIと作戦を改善し、囲みマスで対戦結果を確認している画面" width="1535"
+            height="1024">
         </figure>
       </section>
 
@@ -68,45 +72,45 @@
           <li><span>5</span><div><h3>「対戦を始める」をクリック</h3><p>作成したエージェントで、さっそく対戦を始められます。</p></div></li>
         </ol>
       </section>
-
     </main>
 
     <footer>
-      <a class="brand" href="#top"><img class="brand-icon" src="./app-icon.png" alt=""><span>囲みコード</span></a>
+      <a class="brand"
+        href="#top"><img class="brand-icon" src="./app-icon.png" alt=""><span>囲みコード</span></a>
     </footer>
     <script>
-      document.querySelectorAll("[data-copy-target]").forEach((button) => {
-        button.addEventListener("click", async () => {
-          const target = document.getElementById(button.dataset.copyTarget);
-          const status = button.closest("div").nextElementSibling;
-          if (!target) return;
+    document.querySelectorAll("[data-copy-target]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const target = document.getElementById(button.dataset.copyTarget);
+        const status = button.closest("div").nextElementSibling;
+        if (!target) return;
 
-          try {
-            const text = target.textContent;
-            if (navigator.clipboard && window.isSecureContext) {
-              await navigator.clipboard.writeText(text);
-            } else {
-              const textarea = document.createElement("textarea");
-              textarea.value = text;
-              textarea.style.position = "fixed";
-              textarea.style.opacity = "0";
-              document.body.appendChild(textarea);
-              textarea.select();
-              const copied = document.execCommand("copy");
-              textarea.remove();
-              if (!copied) throw new Error("copy failed");
-            }
-            button.querySelector(".copy-label").textContent = "コピー済み";
-            status.textContent = "コマンドをコピーしました。";
-            window.setTimeout(() => {
-              button.querySelector(".copy-label").textContent = "コピー";
-              status.textContent = "";
-            }, 1800);
-          } catch {
-            status.textContent = "コピーできませんでした。コマンドを選択してコピーしてください。";
+        try {
+          const text = target.textContent;
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            const copied = document.execCommand("copy");
+            textarea.remove();
+            if (!copied) throw new Error("copy failed");
           }
-        });
+          button.querySelector(".copy-label").textContent = "コピー済み";
+          status.textContent = "コマンドをコピーしました。";
+          window.setTimeout(() => {
+            button.querySelector(".copy-label").textContent = "コピー";
+            status.textContent = "";
+          }, 1800);
+        } catch {
+          status.textContent = "コピーできませんでした。コマンドを選択してコピーしてください。";
+        }
       });
+    });
     </script>
   </body>
 </html>

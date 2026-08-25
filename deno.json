@@ -12,7 +12,7 @@
     "desktop": "deno desktop --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/version_manager.ts --include desktop/assets --include node_modules/monaco-editor/min desktop/app.ts",
     "desktop:mac": "deno desktop --output Kakomimasu.app --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/version_manager.ts --include desktop/assets --include node_modules/monaco-editor/min desktop/app.ts",
     "desktop:windows": "deno desktop --icon desktop/assets/app-icon.ico --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/version_manager.ts --include desktop/assets --include node_modules/monaco-editor/min desktop/app.ts",
-    "check": "deno check desktop/app.ts desktop/version_manager.ts desktop/chat_history.ts",
+    "check": "deno check desktop/app.ts desktop/version_manager.ts desktop/chat_history.ts desktop/http_security.ts",
     "test": "deno test --allow-env --allow-read --allow-write test"
   },
   "fmt": {
