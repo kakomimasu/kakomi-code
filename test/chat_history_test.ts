@@ -26,3 +26,23 @@ Deno.test("不正なチャット履歴は保存しない", () => {
     "チャット履歴が不正です。",
   );
 });
+
+Deno.test("チャット履歴の一時ファイルを保存後に残さない", async () => {
+  const directory = await Deno.makeTempDir();
+  const file = `${directory}/chat-history.json`;
+  try {
+    await saveChatHistory(file, { "v001-Alpha": [] });
+    await saveChatHistory(file, {
+      "v001-Alpha": [{ role: "user", text: "更新後" }],
+    });
+
+    assertEquals(await loadChatHistory(file), {
+      "v001-Alpha": [{ role: "user", text: "更新後" }],
+    });
+    assertEquals(Array.from(Deno.readDirSync(directory), (entry) => entry.name), [
+      "chat-history.json",
+    ]);
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
+});

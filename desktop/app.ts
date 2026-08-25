@@ -3,6 +3,7 @@ import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
 import {
   createVersion,
   deleteVersion,
+  initializeProject,
   listVersions,
   renameVersion,
   validateVersion,
@@ -25,7 +26,7 @@ type ImproveRequest = { idea: string; versionDir: string; agent: CodingAgent; mo
 async function defaultProjectDir(): Promise<string> {
   try {
     const saved = (await Deno.readTextFile(projectFile)).trim();
-    await Deno.stat(join(saved, "versions"));
+    await Deno.stat(join(saved, "template", "main.ts"));
     return saved;
   } catch { /* 初回は実行位置から推測する */ }
   const candidates = [
@@ -34,7 +35,7 @@ async function defaultProjectDir(): Promise<string> {
   ];
   for (const candidate of candidates) {
     try {
-      await Deno.stat(join(candidate, "versions"));
+      await Deno.stat(join(candidate, "template", "main.ts"));
       return candidate;
     } catch { /* 次の候補へ */ }
   }
@@ -75,8 +76,8 @@ function validateSettings(value: unknown): Omit<Settings, "versionDir"> & { vers
 function validateImprove(value: unknown): ImproveRequest {
   if (!value || typeof value !== "object") throw new Error("改善依頼が不正です。");
   const { idea, versionDir, agent, model } = value as Record<string, unknown>;
-  if (typeof idea !== "string" || !idea.trim()) {
-    throw new Error("作戦のアイデアを入力してください。");
+  if (typeof idea !== "string" || !idea.trim() || idea.length > 100_000) {
+    throw new Error("作戦のアイデアは1〜100,000文字で入力してください。");
   }
   if (typeof versionDir !== "string" || !versionDir) {
     throw new Error("バージョンを選択してください。");
@@ -110,6 +111,7 @@ async function dashboard(projectDir: string) {
 }
 
 const projectDir = await defaultProjectDir();
+await initializeProject(projectDir);
 await saveProjectDir(projectDir);
 // Deno Desktop exposes BrowserWindow at runtime, but the stable Deno type library
 // does not include this experimental API yet.
@@ -144,8 +146,10 @@ let codingAgentStatusId = 0;
 let codingAgentVersionDir = "";
 let codingAgentProcess: Deno.ChildProcess | undefined;
 let codingAgentStopRequested = false;
+let codingAgentRequestRunning = false;
 let viewerUrl = "";
 let matchRunning = false;
+let matchProcess: Deno.ChildProcess | undefined;
 const CLIENT_REFERENCE_SOURCES = [
   {
     name: "@kakomimasu/client-deno の KakomimasuClient.ts",
@@ -222,10 +226,20 @@ function stopCodingAgentForShutdown() {
   }
 }
 
+function stopMatchForShutdown() {
+  if (!matchProcess) return;
+  try {
+    matchProcess.kill("SIGKILL");
+  } catch {
+    // 既に終了していれば何もしない。
+  }
+}
+
 // Deno.serve keeps the runtime alive after the native window closes. Exit the
 // process as well so the title-bar close button fully quits the desktop app.
 window.addEventListener("close", () => {
   stopCodingAgentForShutdown();
+  stopMatchForShutdown();
   Deno.exit(0);
 });
 
@@ -670,6 +684,7 @@ expose("startMatch", async (value: unknown) => {
     stdout: "piped",
     stderr: "piped",
   }).spawn();
+  matchProcess = process;
   matchRunning = true;
   // 対戦出力は対戦タブだけに表示し、コーディングAIのチャットログへ混ぜない。
   void Promise.all([
@@ -677,11 +692,13 @@ expose("startMatch", async (value: unknown) => {
     captureOutput(process.stderr, "stderr", addMatchLog),
     process.status,
   ]).then(([, , status]) => {
+    if (matchProcess === process) matchProcess = undefined;
     matchRunning = false;
     addMatchLog(
       status.success ? "対戦クライアントが終了しました。" : "対戦クライアントが異常終了しました。",
     );
   }).catch((error) => {
+    if (matchProcess === process) matchProcess = undefined;
     matchRunning = false;
     addMatchLog(`対戦クライアントの出力取得に失敗しました: ${error}`);
   });
@@ -691,7 +708,7 @@ expose("startMatch", async (value: unknown) => {
   };
 });
 
-expose("improveWithAgent", async (value: unknown) => {
+async function improveWithAgent(value: unknown) {
   const request = validateImprove(value);
   const versionDir = await validateVersion(projectDir, request.versionDir);
   codingAgentVersionDir = versionDir;
@@ -791,6 +808,18 @@ expose("improveWithAgent", async (value: unknown) => {
     if (codingAgentProcess === process) codingAgentProcess = undefined;
     codingAgentStopRequested = false;
   }
+}
+
+expose("improveWithAgent", async (value: unknown) => {
+  if (codingAgentRequestRunning) {
+    throw new Error("コーディングAIはすでに実行中です。終了または停止してから再実行してください。");
+  }
+  codingAgentRequestRunning = true;
+  try {
+    return await improveWithAgent(value);
+  } finally {
+    codingAgentRequestRunning = false;
+  }
 });
 
 const assets = new Map([
@@ -804,9 +833,14 @@ const assets = new Map([
   ["/assets/app-icon.png", ["assets/app-icon.png", "image/png"]],
 ]);
 
-Deno.serve(async (request) => {
+Deno.serve({ hostname: "127.0.0.1" }, async (request) => {
   const url = new URL(request.url);
   if (request.method === "POST" && url.pathname.startsWith("/api/bindings/")) {
+    const origin = request.headers.get("origin");
+    const contentType = request.headers.get("content-type") ?? "";
+    if ((origin && origin !== url.origin) || !contentType.startsWith("application/json")) {
+      return Response.json({ error: "許可されていないリクエストです。" }, { status: 403 });
+    }
     try {
       const name = decodeURIComponent(url.pathname.slice("/api/bindings/".length));
       const handler = apiHandlers.get(name);

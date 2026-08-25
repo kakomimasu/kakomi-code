@@ -3,7 +3,7 @@ import { basename, dirname, join, resolve } from "@std/path";
 export type VersionInfo = { name: string; path: string; ready: boolean };
 export const BASE_VERSION_NAME = "エルメマス1号";
 export const TEMPLATE_PATH = "template/main.ts";
-const VERSION_PATTERN = /^v(\d{3})-/;
+const VERSION_PATTERN = /^v(\d{3,})-/;
 
 function isManagedVersionName(name: string): boolean {
   return name === BASE_VERSION_NAME || VERSION_PATTERN.test(name);
@@ -44,15 +44,46 @@ export async function validateVersion(projectDir: string, versionDir: string): P
   if (dirname(target) !== root || !isManagedVersionName(basename(target))) {
     throw new Error("versions配下の有効なバージョンを選択してください");
   }
-  if (!await exists(join(target, "main.ts"))) {
+  try {
+    const mainPath = await Deno.realPath(join(target, "main.ts"));
+    const mainStat = await Deno.stat(mainPath);
+    if (dirname(mainPath) !== target || !mainStat.isFile) throw new Error();
+  } catch {
     throw new Error("main.ts がありません");
   }
   return target;
 }
 
 function slugify(label: string): string {
-  return label.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").replace(/^-|-$/g, "") ||
-    "エルメマス";
+  const safeLabel = [...label.trim()].map((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint < 32 || codePoint === 127 ? "-" : character;
+  }).join("");
+  return safeLabel.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-")
+    .replace(/^-|-$/g, "") || "エルメマス";
+}
+
+/** Prepare a fresh clone without recreating versions that the user deleted later. */
+export async function initializeProject(projectDir: string): Promise<void> {
+  const project = resolve(projectDir);
+  const template = join(project, TEMPLATE_PATH);
+  if (!await exists(template)) {
+    throw new Error(
+      `新規エージェント用のテンプレートがありません。${TEMPLATE_PATH} を用意してください。`,
+    );
+  }
+
+  const versionsDir = join(project, "versions");
+  if (await exists(versionsDir)) return;
+
+  const baseDir = join(versionsDir, BASE_VERSION_NAME);
+  await Deno.mkdir(baseDir, { recursive: true });
+  try {
+    await Deno.copyFile(template, join(baseDir, "main.ts"));
+  } catch (error) {
+    await Deno.remove(versionsDir, { recursive: true }).catch(() => {});
+    throw error;
+  }
 }
 
 export async function createVersion(
@@ -64,26 +95,32 @@ export async function createVersion(
   const versionsDir = join(project, "versions");
   await Deno.mkdir(versionsDir, { recursive: true });
   const versions = await listVersions(project);
-  const previous = sourceVersionDir
-    ? versions.find((version) => version.path === sourceVersionDir)
-    : undefined;
-  if (sourceVersionDir && !previous) throw new Error("コピー元のバージョンが見つかりません。");
+  const sourcePath = sourceVersionDir
+    ? join(await validateVersion(project, sourceVersionDir), "main.ts")
+    : join(project, TEMPLATE_PATH);
   const next = Math.max(
     1,
     ...versions.map((version) => Number(version.name.match(VERSION_PATTERN)?.[1] ?? 0)),
   ) + 1;
-  const agentName = slugify(label).slice(0, 40);
+  const agentName = [...slugify(label)].slice(0, 40).join("");
   const name = `v${String(next).padStart(3, "0")}-${agentName}`;
   const target = join(versionsDir, name);
 
-  const sourcePath = previous ? join(previous.path, "main.ts") : join(project, TEMPLATE_PATH);
   if (!await exists(sourcePath)) {
     throw new Error(
       `新規エージェント用のテンプレートがありません。${TEMPLATE_PATH} を用意してください。`,
     );
   }
-  await Deno.mkdir(target, { recursive: true });
-  await Deno.copyFile(sourcePath, join(target, "main.ts"));
+  let targetCreated = false;
+  try {
+    // recursive:false prevents two simultaneous creations from overwriting each other.
+    await Deno.mkdir(target);
+    targetCreated = true;
+    await Deno.copyFile(sourcePath, join(target, "main.ts"));
+  } catch (error) {
+    if (targetCreated) await Deno.remove(target, { recursive: true }).catch(() => {});
+    throw error;
+  }
   return { name, path: target, ready: true };
 }
 

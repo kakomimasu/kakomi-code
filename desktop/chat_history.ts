@@ -42,6 +42,18 @@ export async function loadChatHistory(file: string): Promise<ChatHistory> {
 
 export async function saveChatHistory(file: string, value: unknown) {
   const history = validateChatHistory(value);
-  await Deno.mkdir(dirname(file), { recursive: true });
-  await Deno.writeTextFile(file, JSON.stringify(history, null, 2) + "\n");
+  const directory = dirname(file);
+  await Deno.mkdir(directory, { recursive: true });
+  const temporary = await Deno.makeTempFile({
+    dir: directory,
+    prefix: ".chat-history-",
+    suffix: ".tmp",
+  });
+  try {
+    await Deno.writeTextFile(temporary, JSON.stringify(history, null, 2) + "\n");
+    await Deno.rename(temporary, file);
+  } catch (error) {
+    await Deno.remove(temporary).catch(() => {});
+    throw error;
+  }
 }

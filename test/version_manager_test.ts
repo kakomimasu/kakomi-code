@@ -4,8 +4,41 @@ import {
   BASE_VERSION_NAME,
   createVersion,
   deleteVersion,
+  initializeProject,
+  listVersions,
   renameVersion,
 } from "../desktop/version_manager.ts";
+
+Deno.test("fresh cloneではtemplateから最初の版を初期化する", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(join(projectDir, "template"));
+    await Deno.writeTextFile(join(projectDir, "template", "main.ts"), "// template\n");
+
+    await initializeProject(projectDir);
+
+    const versions = await listVersions(projectDir);
+    assertEquals(versions.map((version) => version.name), [BASE_VERSION_NAME]);
+    assertEquals(await Deno.readTextFile(join(versions[0].path, "main.ts")), "// template\n");
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("空のversionsが既にある場合は削除済みの版を復元しない", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    await Deno.mkdir(join(projectDir, "template"));
+    await Deno.mkdir(join(projectDir, "versions"));
+    await Deno.writeTextFile(join(projectDir, "template", "main.ts"), "// template\n");
+
+    await initializeProject(projectDir);
+
+    assertEquals(await listVersions(projectDir), []);
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
 
 Deno.test("＋で作る版は1号ではなくtemplate/main.tsをコピーする", async () => {
   const projectDir = await Deno.makeTempDir();
@@ -104,6 +137,25 @@ Deno.test("名前を変更してもバージョン番号とmain.tsを維持す�
 
     assertEquals(version.name, "v007-変更後");
     assertEquals(await Deno.readTextFile(join(version.path, "main.ts")), "console.log('agent');\n");
+  } finally {
+    await Deno.remove(projectDir, { recursive: true });
+  }
+});
+
+Deno.test("1000以降の版も一覧と連番の対象になる", async () => {
+  const projectDir = await Deno.makeTempDir();
+  try {
+    const source = join(projectDir, "versions", "v1000-長期運用");
+    await Deno.mkdir(source, { recursive: true });
+    await Deno.writeTextFile(join(source, "main.ts"), "// v1000\n");
+
+    const version = await createVersion(projectDir, "次の版", source);
+
+    assertEquals(version.name, "v1001-次の版");
+    assertEquals((await listVersions(projectDir)).map((item) => item.name), [
+      "v1000-長期運用",
+      "v1001-次の版",
+    ]);
   } finally {
     await Deno.remove(projectDir, { recursive: true });
   }

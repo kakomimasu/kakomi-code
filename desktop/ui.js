@@ -218,7 +218,7 @@ globalThis.kakomiApp = () => ({
   },
 
   displayName(name) {
-    return name.replace(/^v\d{3}-/, "");
+    return name.replace(/^v\d{3,}-/, "");
   },
 
   get selectedVersion() {
