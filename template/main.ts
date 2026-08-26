@@ -33,7 +33,7 @@ export const client = new KakomimasuClient({
   ...(host ? { host } : {}),
 });
 
-// Desktopの練習対戦では、対戦画面へのリンクを表示する。
+// Desktopの練習対戦では、対戦画面タブで使うURLをアプリへ通知する。
 if (matchMode === "ai") {
   const api = client.apiClient as {
     joinAiMatch: (...args: unknown[]) => Promise<{ gameId?: string }>;

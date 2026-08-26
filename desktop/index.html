@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>囲みコード</title>
     <link rel="icon" href="/assets/app-icon.png">
-    <link rel="stylesheet" href="/style.css?v=9">
+    <link rel="stylesheet" href="/style.css?v=13">
   </head>
   <body>
     <main class="workspace" x-data="kakomiApp()"
@@ -72,14 +72,22 @@
 
       <section class="chat-pane" x-show="selected" x-cloak>
         <header class="pane-header chat-header">
-          <div>
-            <h2>アルゴリズムを改善しよう</h2>
+          <nav class="tab-list chat-view-tabs" aria-label="中央ペインを選択">
+            <button type="button" class="tab" x-bind:class="{ active: !viewerOpen }"
+              x-on:click="closeViewer()">チャット</button>
+            <button type="button" class="tab" x-bind:class="{ active: viewerOpen }"
+              x-on:click="openViewer()" x-bind:disabled="!viewerUrl">対戦画面</button>
+          </nav>
+          <div class="chat-header-actions">
+            <a class="viewer-external-link" x-show="viewerOpen" x-bind:href="viewerUrl"
+              target="_blank" rel="noopener noreferrer">外部ブラウザで開く ↗</a>
+            <button type="button" class="chat-clear-button" x-show="!viewerOpen"
+              x-on:click="clearChat()"
+              x-bind:disabled="busy || messages.length === 0"
+              title="このエージェントのチャット履歴をクリア">チャットをクリア</button>
           </div>
-          <button type="button" class="chat-clear-button" x-on:click="clearChat()"
-            x-bind:disabled="busy || messages.length === 0"
-            title="このエージェントのチャット履歴をクリア">チャットをクリア</button>
         </header>
-        <section class="strategy-panel">
+        <section class="strategy-panel" x-show="!viewerOpen">
           <div class="chat-feed" x-ref="chatFeed" x-on:scroll.passive="updateChatScrollState()">
             <article class="welcome" x-show="messages.length === 0">
               <img src="/assets/app-icon.png" alt="">
@@ -187,6 +195,15 @@
             </div>
           </form>
         </section>
+        <section class="viewer-panel" x-show="viewerOpen" x-cloak
+          aria-label="囲みマスの対戦画面">
+          <div class="viewer-loading" x-show="viewerLoading">対戦画面を読み込んでいます…</div>
+          <iframe class="viewer-frame" title="囲みマスの対戦画面"
+            x-bind:src="viewerOpen ? viewerUrl : 'about:blank'"
+            x-on:load="viewerLoading = false"
+            sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+            referrerpolicy="no-referrer" allow="fullscreen"></iframe>
+        </section>
       </section>
 
       <div class="resize-handle utility-resize-handle" x-show="selected" x-cloak role="separator"
@@ -285,8 +302,6 @@
             <button class="match-button" x-on:click="startMatch()"
               x-bind:disabled="busy || matchRunning">対戦を始める</button>
             <p class="status" x-text="matchStatus"></p>
-            <a class="viewer-link" x-show="viewerUrl" x-bind:href="viewerUrl"
-              target="_blank">対戦画面を開く ↗</a>
           </div>
           <section class="match-log-card">
             <h2>対戦中のクライアント出力</h2>
@@ -305,7 +320,7 @@
       </section>
     </main>
     <script src="/monaco/vs/loader.js"></script>
-    <script src="/ui.js?v=13"></script>
+    <script src="/ui.js?v=15"></script>
     <script src="/alpine.js?v=2"></script>
   </body>
 </html>

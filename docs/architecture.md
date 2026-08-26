@@ -3,16 +3,17 @@
 ## 概要
 
 囲みコードは、Deno
-Desktopで動くローカルデスクトップアプリです。画面はHTML、CSS、JavaScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
+Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はHTML、CSS、JavaScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
 / Claude Codeの起動を担当します。
 
 ```mermaid
 flowchart LR
   Launcher[run.sh / run.bat] --> App[desktop/app.ts]
   Release[GitHub Releasesの配布アプリ] --> App
-  App --> Window[BrowserWindow]
+  App --> Window[CEFのBrowserWindow]
   Window --> UI[index.html / ui.js]
   UI --> LocalAPI[127.0.0.1 のローカルAPI]
+  UI --> Viewer[チャット欄の対戦ビュー]
   LocalAPI --> Versions[versions/*/main.ts]
   LocalAPI --> History[ホーム内のチャット履歴]
   LocalAPI --> Match[Deno対戦プロセス]
@@ -36,6 +37,8 @@ flowchart LR
 | `desktop/version_manager.ts`    | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
 | `desktop/chat_history.ts`       | チャット履歴の検証と原子的な保存                                |
 | `desktop/http_security.ts`      | ループバック・同一オリジン・APIトークンの検証                   |
+| `desktop/terminal_text.ts`      | 端末出力からANSI制御シーケンスを除去                            |
+| `desktop/window_geometry.ts`    | 利用可能な画面領域とウィンドウサイズの検証                      |
 | `template/main.ts`              | 新しいAIの初期コードと囲みマスクライアントの設定                |
 | `website/`                      | GitHub Pagesで公開する、アプリとは独立した静的サイト            |
 
@@ -44,18 +47,21 @@ flowchart LR
 1. ソース版では、`run.sh` または `run.bat` がDenoの存在を確認します。
 2. `.env` がある場合だけ `--env-file=.env` をDenoへ渡します。
 3. `deno task desktop:*` がDeno Desktopアプリをビルドします。配布版では、この処理をGitHub
-   Actionsで済ませます。
+   Actionsで済ませます。 `deno.json` の `desktop.backend: "cef"`
+   により、各OS向けChromiumもアプリへ同梱します。
 4. `desktop/app.ts` が作業フォルダを検出します。配布版では同梱テンプレートを
    `~/.kakomimasu-ai-starter/workspace/` へコピーします。
 5. `versions/` がまだ存在しないfresh cloneでは、`template/main.ts` から最初の版を作ります。
 6. BrowserWindowと `127.0.0.1` のHTTPサーバーを起動します。
+7. 画面の読み込み時に利用可能な表示領域を取得し、メインウィンドウをその大きさへ広げます。
 
 `versions/` が既に存在して空の場合は、利用者が全版を削除した状態として扱い、最初の版を復元しません。
 
 ## 画面とローカルAPI
 
 `desktop/ui.js` は `/api/bindings/<name>` をPOSTで呼び出します。Deno Desktopの `window.bind`
-とHTTP経由の両方で同じハンドラーを公開します。
+とHTTP経由の両方で同じハンドラーを公開します。 画面とMonaco Editorは `prefers-color-scheme`
+を監視し、OSのライト・ダーク設定へ追従します。
 
 HTTP経由では次をすべて満たす必要があります。
 
@@ -94,7 +100,9 @@ HTTP経由では次をすべて満たす必要があります。
 
 `--cached-only` と `--no-prompt`
 を使い、実行中の依存取得や権限確認待ちを避けます。標準出力と標準エラーは上限付きで保持し、`VIEWER_URL`
-を画面へ反映します。
+を画面へ反映します。ログからANSI制御シーケンスを除去してから画面へ表示します。「対戦画面」タブを押すと、
+チャット欄をsandbox付きiframeへ切り替え、検証済みの `https://kakomimasu.com/game`
+だけを開始URLとして表示します。
 
 ## コーディングAI
 

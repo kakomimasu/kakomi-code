@@ -88,6 +88,9 @@ deno task release:build \
 同じタグのGitHub
 Releaseへ添付します。現在はコード署名を行わないため、公開前に各OSで起動確認してください。
 
+デスクトップアプリは `deno.json` の `desktop.backend` で `cef` を指定し、Chromiumを同梱します。
+初回ビルドでは数百MBのCEFアーカイブを取得するため、十分な空き容量と通信環境を用意してください。
+
 ## コーディング方針
 
 - Deno標準APIと既存依存を優先し、本番依存を不用意に増やさないでください。

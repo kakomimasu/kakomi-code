@@ -26,6 +26,8 @@
 - 対戦AIは別プロセスで、読み取り、ネットワーク、環境変数の権限を限定して実行します。
 - 対戦前の依存取得はコードを実行しない `deno cache` で行い、接続先を `jsr.io` と
   `raw.githubusercontent.com` に限定します。
+- 内蔵ブラウザを開くときは `https://kakomimasu.com/game`
+  の対戦URLだけを開始URLとして許可し、iframeをsandbox化します。
 - 対戦AIを `deno run -A` で実行しません。
 - コーディングAIには選択中の `main.ts` だけを編集するよう指示し、Webアクセスを無効化します。
 - 外部プロセス出力とチャット履歴には件数・文字数の上限を設けます。

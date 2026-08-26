@@ -44,6 +44,8 @@
 - 配布版は同梱した `template/main.ts`
   をユーザー領域へ展開し、インストール先へ利用者データを書かない。
 - Releaseワークフローでは、Denoのバージョンと対応OS・アーキテクチャを明示する。
+- デスクトップ画面は内蔵Chromiumで動かすため、`deno.json` の `desktop.backend: "cef"` を維持する。
+- チャット欄の内蔵ブラウザは、検証済みの囲みマス対戦URLだけをsandbox付きiframeの開始URLにする。
 
 ## 変更時の方針
 

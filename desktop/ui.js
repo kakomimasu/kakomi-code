@@ -90,6 +90,8 @@ const PRACTICE_OPPONENTS = {
 let sourceEditor;
 let sourceEditorReady;
 let sourceEditorResizeObserver;
+let colorSchemeMediaQuery;
+let colorSchemeListener;
 const MODEL_OPTIONS = {
   codex: [
     { value: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
@@ -147,8 +149,14 @@ globalThis.kakomiApp = () => ({
   matchStatus: "",
   matchRunning: false,
   viewerUrl: "",
+  viewerOpen: false,
+  viewerLoading: false,
+  viewerStates: {},
+  matchVersion: "",
   ai: "a1",
   board: "A-1",
+  darkMode: typeof globalThis.matchMedia === "function" &&
+    globalThis.matchMedia("(prefers-color-scheme: dark)").matches,
   busy: false,
   codingAgentRunning: false,
   stopping: false,
@@ -161,6 +169,8 @@ globalThis.kakomiApp = () => ({
 
   async init() {
     try {
+      this.initColorScheme();
+      await this.fitWindowToScreen();
       await this.$nextTick();
       sourceEditorReady = this.initSourceEditor();
       await this.refresh();
@@ -173,8 +183,41 @@ globalThis.kakomiApp = () => ({
     }
   },
 
+  initColorScheme() {
+    if (typeof globalThis.matchMedia !== "function") return;
+    colorSchemeMediaQuery = globalThis.matchMedia("(prefers-color-scheme: dark)");
+    this.darkMode = colorSchemeMediaQuery.matches;
+    colorSchemeListener = (event) => {
+      this.darkMode = event.matches;
+      if (sourceEditor && globalThis.monaco) {
+        globalThis.monaco.editor.setTheme(this.darkMode ? "vs-dark" : "vs");
+      }
+    };
+    colorSchemeMediaQuery.addEventListener("change", colorSchemeListener);
+  },
+
+  async fitWindowToScreen() {
+    const browserScreen = globalThis.screen;
+    if (!browserScreen) return;
+    try {
+      await call("fitWindowToScreen", [{
+        width: browserScreen.availWidth,
+        height: browserScreen.availHeight,
+        x: browserScreen.availLeft || 0,
+        y: browserScreen.availTop || 0,
+      }]);
+    } catch {
+      // 画面情報を取得できない環境では、BrowserWindowの初期サイズを使う。
+    }
+  },
+
   destroy() {
     if (this.timer) clearInterval(this.timer);
+    if (colorSchemeMediaQuery && colorSchemeListener) {
+      colorSchemeMediaQuery.removeEventListener("change", colorSchemeListener);
+    }
+    colorSchemeMediaQuery = undefined;
+    colorSchemeListener = undefined;
     sourceEditorResizeObserver?.disconnect();
     sourceEditor?.dispose();
     sourceEditor = undefined;
@@ -194,7 +237,7 @@ globalThis.kakomiApp = () => ({
           sourceEditor = globalThis.monaco.editor.create(this.$refs.sourceEditor, {
             value: this.source,
             language: "typescript",
-            theme: "vs",
+            theme: this.darkMode ? "vs-dark" : "vs",
             automaticLayout: true,
             fontFamily: "SFMono-Regular, Menlo, Monaco, Consolas, monospace",
             fontSize: 13,
@@ -342,16 +385,22 @@ globalThis.kakomiApp = () => ({
   },
 
   boardPointColor(point) {
-    const strength = 0.16 + Math.min(Math.abs(point) / 16, 1) * 0.72;
+    const strength = (this.darkMode ? 0.3 : 0.16) +
+      Math.min(Math.abs(point) / 16, 1) * (this.darkMode ? 0.58 : 0.72);
     if (point < 0) return `rgba(218, 80, 61, ${strength})`;
     if (point > 0) return `rgba(48, 133, 104, ${strength})`;
-    return "#e7e7e2";
+    return this.darkMode ? "#3b3b37" : "#e7e7e2";
   },
 
   async refresh(preferred) {
     this.dashboard = await call("getDashboard");
     if (preferred || !this.dashboard.versions.some((version) => version.path === this.selected)) {
-      this.selected = preferred || this.dashboard.versions[0]?.path || "";
+      const nextSelected = preferred || this.dashboard.versions[0]?.path || "";
+      if (nextSelected !== this.selected) {
+        this.rememberViewerState();
+        this.selected = nextSelected;
+        this.restoreViewerState(nextSelected);
+      }
     }
   },
 
@@ -382,7 +431,9 @@ globalThis.kakomiApp = () => ({
 
   async selectVersion(path) {
     if (path === this.selected) return;
+    this.rememberViewerState();
     this.selected = path;
+    this.restoreViewerState(path);
     this.source = "";
     this.sourceStatus = "";
     this.codingLogs = [];
@@ -439,6 +490,14 @@ globalThis.kakomiApp = () => ({
         delete this.messagesByVersion[version.path];
       }
       await this.refresh(result.version.path);
+      if (result.version.path !== version.path && this.viewerStates[version.path]) {
+        const viewerState = this.viewerStates[version.path];
+        const viewerStates = { ...this.viewerStates, [result.version.path]: viewerState };
+        delete viewerStates[version.path];
+        this.viewerStates = viewerStates;
+        if (this.matchVersion === version.path) this.matchVersion = result.version.path;
+        this.restoreViewerState(result.version.path);
+      }
       await this.loadSource(result.version.path);
       const saved = await this.persistChatHistory();
       this.status = this.displayName(result.version.name) +
@@ -457,6 +516,11 @@ globalThis.kakomiApp = () => ({
       await call("deleteVersion", [version.path]);
       delete this.messagesByVersion[version.path];
       await this.refresh();
+      if (this.viewerStates[version.path]) {
+        const viewerStates = { ...this.viewerStates };
+        delete viewerStates[version.path];
+        this.viewerStates = viewerStates;
+      }
       await this.loadSource();
       const saved = await this.persistChatHistory();
       this.status = name +
@@ -612,9 +676,13 @@ globalThis.kakomiApp = () => ({
 
   async startMatch() {
     if (!this.selected || this.busy) return;
+    this.matchVersion = this.selected;
     this.busy = true;
     this.matchStatus = "参加しています…";
+    this.viewerOpen = false;
+    this.viewerLoading = false;
     this.viewerUrl = "";
+    this.rememberViewerState();
     this.matchLogs = [];
     try {
       const result = await call("startMatch", [{
@@ -625,6 +693,7 @@ globalThis.kakomiApp = () => ({
       }]);
       this.matchStatus = result.message;
       this.viewerUrl = result.viewerUrl;
+      this.rememberViewerState();
       this.matchRunning = true;
     } catch (error) {
       this.matchStatus = "エラー: " + error.message;
@@ -634,6 +703,44 @@ globalThis.kakomiApp = () => ({
     }
   },
 
+  openViewer() {
+    try {
+      const url = new URL(this.viewerUrl);
+      if (
+        url.origin !== "https://kakomimasu.com" || url.pathname !== "/game" ||
+        !url.searchParams.get("id")
+      ) throw new Error();
+    } catch {
+      this.matchStatus = "エラー: 対戦画面のURLを確認できませんでした。";
+      return;
+    }
+    this.viewerLoading = true;
+    this.viewerOpen = true;
+    this.rememberViewerState();
+  },
+
+  closeViewer() {
+    this.viewerOpen = false;
+    this.viewerLoading = false;
+    this.rememberViewerState();
+    this.scrollChat(true);
+  },
+
+  rememberViewerState(path = this.selected) {
+    if (!path) return;
+    this.viewerStates = {
+      ...this.viewerStates,
+      [path]: { url: this.viewerUrl, open: this.viewerOpen },
+    };
+  },
+
+  restoreViewerState(path) {
+    const state = this.viewerStates[path];
+    this.viewerUrl = state?.url || "";
+    this.viewerOpen = Boolean(state?.open && state.url);
+    this.viewerLoading = this.viewerOpen;
+  },
+
   async pollLogs() {
     try {
       const [match, codingAgentState] = await Promise.all([
@@ -641,7 +748,17 @@ globalThis.kakomiApp = () => ({
         call("getCodingAgentLogs"),
       ]);
       this.matchLogs = match.logs;
-      this.viewerUrl = match.viewerUrl || this.viewerUrl;
+      if (match.viewerUrl) {
+        const versionPath = this.matchVersion || this.selected;
+        if (versionPath) {
+          const viewerState = this.viewerStates[versionPath] || { url: "", open: false };
+          this.viewerStates = {
+            ...this.viewerStates,
+            [versionPath]: { ...viewerState, url: match.viewerUrl },
+          };
+          if (versionPath === this.selected) this.viewerUrl = match.viewerUrl;
+        }
+      }
       this.matchRunning = match.running;
       this.codingLogs = codingAgentState.versionDir === this.selected ? codingAgentState.logs : [];
       const completedFileChangeLogIds = new Set(

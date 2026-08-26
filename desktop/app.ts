@@ -3,6 +3,8 @@ import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
 import { dependencyCacheArgs, findExecutable } from "./command_resolver.ts";
 import { hasValidApiToken, isTrustedLoopbackRequest } from "./http_security.ts";
+import { createTerminalTextSanitizer, stripTerminalSequences } from "./terminal_text.ts";
+import { validateWindowGeometry } from "./window_geometry.ts";
 import {
   createVersion,
   deleteVersion,
@@ -236,11 +238,14 @@ window.addEventListener("close", () => {
 });
 
 function addMatchLog(message: string) {
-  const matchUrl = message.match(/VIEWER_URL=(https:\/\/kakomimasu\.com\/game\?id=[^\s]+)/)?.[1];
+  const cleanMessage = stripTerminalSequences(message);
+  const matchUrl = cleanMessage.match(
+    /VIEWER_URL=(https:\/\/kakomimasu\.com\/game\?id=[^\s]+)/,
+  )?.[1];
   if (matchUrl) viewerUrl = matchUrl;
-  const text = message.length > MAX_LOG_TEXT_CHARACTERS
-    ? `${message.slice(0, MAX_LOG_TEXT_CHARACTERS)}\n…（長すぎるため省略）`
-    : message;
+  const text = cleanMessage.length > MAX_LOG_TEXT_CHARACTERS
+    ? `${cleanMessage.slice(0, MAX_LOG_TEXT_CHARACTERS)}\n…（長すぎるため省略）`
+    : cleanMessage;
   matchLogs.push(`${new Date().toLocaleTimeString("ja-JP")}  ${text}`);
   if (matchLogs.length > 500) matchLogs.shift();
 }
@@ -568,15 +573,18 @@ async function captureOutput(
   onChunk: (message: string) => void = addMatchLog,
 ): Promise<string> {
   const decoder = new TextDecoder();
+  const sanitizer = createTerminalTextSanitizer();
   let output = "";
   for await (const chunk of stream) {
     const text = decoder.decode(chunk, { stream: true });
-    output = appendCapturedOutput(output, text);
-    if (text) onChunk(`[${label}] ${text}`);
+    const cleanText = sanitizer.write(text);
+    output = appendCapturedOutput(output, cleanText);
+    if (cleanText) onChunk(`[${label}] ${cleanText}`);
   }
   const remaining = decoder.decode();
-  output = appendCapturedOutput(output, remaining);
-  if (remaining) onChunk(`[${label}] ${remaining}`);
+  const cleanRemaining = sanitizer.write(remaining);
+  output = appendCapturedOutput(output, cleanRemaining);
+  if (cleanRemaining) onChunk(`[${label}] ${cleanRemaining}`);
   return output;
 }
 
@@ -587,6 +595,12 @@ function expose(name: string, handler: ApiHandler) {
   window.bind(name, handler);
 }
 
+expose("fitWindowToScreen", (value: unknown) => {
+  const geometry = validateWindowGeometry(value);
+  window.setSize(geometry.width, geometry.height);
+  window.setPosition(geometry.x, geometry.y);
+  return geometry;
+});
 expose("getDashboard", () => dashboard(projectDir));
 expose("getChatHistory", () => loadChatHistory(chatHistoryFile));
 expose("saveChatHistory", async (history: unknown) => {
@@ -757,7 +771,7 @@ expose("startMatch", async (value: unknown) => {
     addMatchLog(`対戦クライアントの出力取得に失敗しました: ${error}`);
   });
   return {
-    message: "main.tsを起動しました。対局の準備ができると、対戦画面へのリンクが表示されます。",
+    message: "main.tsを起動しました。対局の準備ができると、中央上部の「対戦画面」タブを開けます。",
     viewerUrl,
   };
 });
