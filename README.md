@@ -15,6 +15,18 @@ Claude Code に日本語で相談できます。
   <img src="website/kakomi-code-to-match.png" alt="囲みコードで作戦を改善し、囲みマスの対戦結果を確認している画面" width="1000">
 </p>
 
+## アプリをダウンロード
+
+[GitHub Releasesの最新版](https://github.com/kakomimasu/kakomi-code/releases/latest)から、OSに合うファイルをダウンロードできます。
+
+- Apple Silicon搭載Mac: `macos-arm64.dmg`
+- Intel搭載Mac: `macos-x64.dmg`
+- Windows 64ビット: `windows-x64.msi`
+- Linux 64ビット: `linux-x64.AppImage`
+
+現在の配布ファイルにはコード署名がありません。そのため、macOSやWindowsで初回起動時に安全確認が表示されることがあります。
+Linuxでは、ダウンロード後に `chmod +x KakomiCode-*.AppImage` を実行してから起動してください。
+
 ## できること
 
 - 同梱のサンプルエージェントで、すぐに囲みマスの対戦を試せる
@@ -32,7 +44,7 @@ Claude Code に日本語で相談できます。
 [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) または
 [Claude Code](https://code.claude.com/docs/en/overview) をインストールし、ログインしてください。
 
-## はじめかた
+## ソースコードから起動
 
 リポジトリを取得します。Gitを使わない場合は、GitHubの「Code」からZIPをダウンロードして展開しても構いません。
 
@@ -85,9 +97,11 @@ VS Code を使う場合は、`Cmd/Ctrl + Shift + B` を押して「囲みコー�
 
 ## データの保存場所
 
-- 作ったエージェントは、このリポジトリの `versions/` に保存されます。
+- ダウンロードしたアプリでは、作ったエージェントはホームフォルダ内の
+  `.kakomimasu-ai-starter/workspace/versions/` に保存されます。
+- ソースコードから起動した場合は、このリポジトリの `versions/` に保存されます。
 - チャット履歴などのアプリ設定は、ホームフォルダ内の `.kakomimasu-ai-starter/` に保存されます。
-- 大切な作戦は、`versions/` から別の場所へバックアップしてください。
+- 大切な作戦は、保存先の `versions/` から別の場所へバックアップしてください。
 
 `versions/` と `.env` はGitへコミットしないでください。
 

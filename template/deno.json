@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@kakomimasu/client-deno": "https://raw.githubusercontent.com/kakomimasu/client-deno/main/KakomimasuClient.ts"
+  }
+}

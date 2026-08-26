@@ -6,5 +6,6 @@
 *.so
 /app
 /app.exe
+/dist/
 node_modules/
 versions/*

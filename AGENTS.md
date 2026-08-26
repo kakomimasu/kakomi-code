@@ -10,6 +10,7 @@
 - `desktop/`: デスクトップアプリ、ローカルAPI、画面
 - `template/main.ts`: 新しいAIへコピーする初期コード
 - `test/`: Denoのテスト
+- `scripts/`: 配布ファイルのビルドなど、開発・リリース用スクリプト
 - `website/`: GitHub Pagesで公開する静的な紹介サイト
 - `versions/`: 利用者が作ったAI。Gitへ追加しない
 - `docs/architecture.md`: コンポーネントとデータフローの説明
@@ -23,6 +24,7 @@
 - lint: `deno task lint`
 - フォーマット確認: `deno task fmt:check`
 - アプリ起動: macOS / Linuxは `./run.sh`、Windowsは `run.bat`
+- 配布ビルド: `deno task release:build --target <target> --output <file>`
 
 素の `deno test` では必要な権限が付かないため、必ず `deno task test` を使ってください。
 
@@ -39,6 +41,9 @@
 - `run.sh` はmacOS標準の古いBashでも動作させる。空配列の展開など、`set -u`
   と衝突する書き方を避ける。
 - `desktop/alpine.js` は同梱済み依存物のため、依存更新以外では編集しない。
+- 配布版は同梱した `template/main.ts`
+  をユーザー領域へ展開し、インストール先へ利用者データを書かない。
+- Releaseワークフローでは、Denoのバージョンと対応OS・アーキテクチャを明示する。
 
 ## 変更時の方針
 

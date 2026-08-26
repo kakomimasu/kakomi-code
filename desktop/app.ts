@@ -1,5 +1,7 @@
 import { join } from "@std/path";
+import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
+import { dependencyCacheArgs, findExecutable } from "./command_resolver.ts";
 import { hasValidApiToken, isTrustedLoopbackRequest } from "./http_security.ts";
 import {
   createVersion,
@@ -10,8 +12,7 @@ import {
   validateVersion,
 } from "./version_manager.ts";
 
-const userHome = Deno.env.get("HOME") ?? Deno.cwd();
-const settingsDir = join(userHome, ".kakomimasu-ai-starter");
+const settingsDir = resolveSettingsDir(Deno.env.toObject(), Deno.cwd());
 const projectFile = join(settingsDir, "project-dir.txt");
 const chatHistoryFile = join(settingsDir, "chat-history.json");
 const apiToken = crypto.randomUUID();
@@ -26,25 +27,6 @@ type Settings = {
 };
 type CodingAgent = "codex" | "claude";
 type ImproveRequest = { idea: string; versionDir: string; agent: CodingAgent; model: string };
-
-async function defaultProjectDir(): Promise<string> {
-  try {
-    const saved = (await Deno.readTextFile(projectFile)).trim();
-    await Deno.stat(join(saved, "template", "main.ts"));
-    return saved;
-  } catch { /* 初回は実行位置から推測する */ }
-  const candidates = [
-    Deno.cwd(),
-    Deno.execPath().replace(/\/[^/]+\.app\/Contents\/MacOS\/[^/]+$/, ""),
-  ];
-  for (const candidate of candidates) {
-    try {
-      await Deno.stat(join(candidate, "template", "main.ts"));
-      return candidate;
-    } catch { /* 次の候補へ */ }
-  }
-  throw new Error("スターターキットのフォルダを自動検出できませんでした。");
-}
 
 async function saveProjectDir(projectDir: string) {
   await Deno.mkdir(settingsDir, { recursive: true });
@@ -114,7 +96,13 @@ async function dashboard(projectDir: string) {
   };
 }
 
-const projectDir = await defaultProjectDir();
+const projectDir = await resolveProjectDirectory({
+  settingsDir,
+  cwd: Deno.cwd(),
+  executablePath: Deno.execPath(),
+  bundledTemplatePath: join(import.meta.dirname ?? "desktop", "..", "template", "main.ts"),
+  bundledConfigPath: join(import.meta.dirname ?? "desktop", "..", "template", "deno.json"),
+});
 await initializeProject(projectDir);
 await saveProjectDir(projectDir);
 // Deno Desktop exposes BrowserWindow at runtime, but the stable Deno type library
@@ -709,7 +697,34 @@ expose("startMatch", async (value: unknown) => {
     throw new Error("KAKOMIMASU_HOSTにはHTTPまたはHTTPSのURLを指定してください。");
   }
   addMatchLog(`main.ts ${versionDir.split("/").at(-1) ?? versionDir} を起動します。`);
-  const process = new Deno.Command("deno", {
+  const denoCommand = await findExecutable("deno");
+  if (!denoCommand) {
+    throw new Error("Denoが見つかりません。https://deno.com/ からインストールしてください。");
+  }
+  addMatchLog("依存関係を確認します。");
+  const cacheProcess = new Deno.Command(denoCommand, {
+    args: dependencyCacheArgs(join(versionDir, "main.ts")),
+    cwd: versionDir,
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  matchProcess = cacheProcess;
+  matchRunning = true;
+  let cacheStatus: Deno.CommandStatus;
+  try {
+    [, , cacheStatus] = await Promise.all([
+      captureOutput(cacheProcess.stdout, "stdout", addMatchLog),
+      captureOutput(cacheProcess.stderr, "stderr", addMatchLog),
+      cacheProcess.status,
+    ]);
+  } finally {
+    if (matchProcess === cacheProcess) matchProcess = undefined;
+    matchRunning = false;
+  }
+  if (!cacheStatus.success) {
+    throw new Error("依存関係を準備できませんでした。インターネット接続を確認してください。");
+  }
+  const process = new Deno.Command(denoCommand, {
     args: [
       "run",
       "--cached-only",
@@ -762,7 +777,11 @@ async function improveWithAgent(value: unknown) {
     "作戦のアイデア:",
     request.idea,
   ].join("\n\n");
-  const command = request.agent === "codex" ? "codex" : "claude";
+  const commandName = request.agent === "codex" ? "codex" : "claude";
+  const command = await findExecutable(commandName);
+  if (!command) {
+    throw new Error(`${request.agent === "codex" ? "Codex CLI" : "Claude Code"}が見つかりません。`);
+  }
   const modelArgs = request.model ? ["--model", request.model] : [];
   const args = request.agent === "codex"
     ? [
@@ -798,7 +817,7 @@ async function improveWithAgent(value: unknown) {
   const loggedArgs = request.agent === "codex"
     ? args.slice(0, -1)
     : [args[0], "…", ...args.slice(2)];
-  addCodingAgentStatus(`$ ${command} ${loggedArgs.join(" ")}`);
+  addCodingAgentStatus(`$ ${commandName} ${loggedArgs.join(" ")}`);
   const process = new Deno.Command(command, {
     args,
     cwd: request.agent === "claude" ? versionDir : undefined,

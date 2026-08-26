@@ -9,6 +9,7 @@ Desktopで動くローカルデスクトップアプリです。画面はHTML、
 ```mermaid
 flowchart LR
   Launcher[run.sh / run.bat] --> App[desktop/app.ts]
+  Release[GitHub Releasesの配布アプリ] --> App
   App --> Window[BrowserWindow]
   Window --> UI[index.html / ui.js]
   UI --> LocalAPI[127.0.0.1 のローカルAPI]
@@ -22,24 +23,30 @@ flowchart LR
 
 ## コンポーネント
 
-| 場所                         | 役割                                                            |
-| ---------------------------- | --------------------------------------------------------------- |
-| `run.sh`, `run.bat`          | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する     |
-| `desktop/app.ts`             | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理 |
-| `desktop/index.html`         | アプリ画面の構造とAPIトークンの埋め込み先                       |
-| `desktop/ui.js`              | Alpine.jsの画面状態、ローカルAPI呼び出し、エディター操作        |
-| `desktop/version_manager.ts` | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
-| `desktop/chat_history.ts`    | チャット履歴の検証と原子的な保存                                |
-| `desktop/http_security.ts`   | ループバック・同一オリジン・APIトークンの検証                   |
-| `template/main.ts`           | 新しいAIの初期コードと囲みマスクライアントの設定                |
-| `website/`                   | GitHub Pagesで公開する、アプリとは独立した静的サイト            |
+| 場所                            | 役割                                                            |
+| ------------------------------- | --------------------------------------------------------------- |
+| `run.sh`, `run.bat`             | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する     |
+| `scripts/build_release.ts`      | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする         |
+| `.github/workflows/release.yml` | タグから各OS向け配布ファイルとGitHub Releaseを作る              |
+| `desktop/app.ts`                | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理 |
+| `desktop/app_paths.ts`          | ソース版・配布版の作業フォルダとテンプレートを解決する          |
+| `desktop/command_resolver.ts`   | Deno、Codex、Claude Codeの実行ファイルをユーザー環境から探す    |
+| `desktop/index.html`            | アプリ画面の構造とAPIトークンの埋め込み先                       |
+| `desktop/ui.js`                 | Alpine.jsの画面状態、ローカルAPI呼び出し、エディター操作        |
+| `desktop/version_manager.ts`    | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
+| `desktop/chat_history.ts`       | チャット履歴の検証と原子的な保存                                |
+| `desktop/http_security.ts`      | ループバック・同一オリジン・APIトークンの検証                   |
+| `template/main.ts`              | 新しいAIの初期コードと囲みマスクライアントの設定                |
+| `website/`                      | GitHub Pagesで公開する、アプリとは独立した静的サイト            |
 
 ## 起動フロー
 
-1. `run.sh` または `run.bat` がDenoの存在を確認します。
+1. ソース版では、`run.sh` または `run.bat` がDenoの存在を確認します。
 2. `.env` がある場合だけ `--env-file=.env` をDenoへ渡します。
-3. `deno task desktop:*` がDeno Desktopアプリをビルドします。
-4. `desktop/app.ts` がプロジェクトディレクトリを検出します。
+3. `deno task desktop:*` がDeno Desktopアプリをビルドします。配布版では、この処理をGitHub
+   Actionsで済ませます。
+4. `desktop/app.ts` が作業フォルダを検出します。配布版では同梱テンプレートを
+   `~/.kakomimasu-ai-starter/workspace/` へコピーします。
 5. `versions/` がまだ存在しないfresh cloneでは、`template/main.ts` から最初の版を作ります。
 6. BrowserWindowと `127.0.0.1` のHTTPサーバーを起動します。
 
@@ -75,6 +82,12 @@ HTTP経由では次をすべて満たす必要があります。
 対戦開始時は選択中の `main.ts`
 を別のDenoプロセスで実行します。子プロセスには次の権限だけを渡します。
 
+実行前に `deno cache` で依存を準備します。この処理はAIコードを実行せず、import先を `jsr.io` と
+`raw.githubusercontent.com` に限定します。実行本体は `--cached-only`
+のため、対戦中に新しい依存を取得しません。
+
+実行本体には次の権限だけを渡します。
+
 - 選択中バージョンの読み取り
 - `KAKOMIMASU_HOST` で指定された通信先への接続
 - 対戦に必要な限定された環境変数の読み取り
@@ -109,6 +122,9 @@ HTTP経由では次をすべて満たす必要があります。
 
 チャット履歴は件数、メッセージ数、総文字数を検証し、一時ファイルへ書いた後で置き換えます。
 
+ソース版の `<project>` はリポジトリです。配布版では `~/.kakomimasu-ai-starter/workspace/`
+を使うため、アプリのインストール先へ利用者データを書き込みません。
+
 ## テスト
 
 - `test/version_manager_test.ts`: ファイル境界、連番、名前変更、削除
@@ -116,5 +132,7 @@ HTTP経由では次をすべて満たす必要があります。
 - `test/http_security_test.ts`: ホスト、Origin、APIトークン
 - `test/run_script_test.ts`: `.env` の有無と古いBashでの起動
 - `test/main_test.ts`: 初期AIの公開動作
+- `test/app_paths_test.ts`: 配布版の作業フォルダと同梱テンプレートの展開
+- `test/command_resolver_test.ts`: CLI探索と依存取得先の制限
 
 ローカルとCIの共通入口は `deno task verify` です。

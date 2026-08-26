@@ -6,7 +6,7 @@
 
 必要なもの:
 
-- Deno 2系
+- Deno 2.9以降
 - Git
 - デスクトップアプリを確認する場合はCodex CLIまたはClaude Code CLI
 
@@ -15,10 +15,9 @@
 ```sh
 git clone https://github.com/kakomimasu/kakomi-code.git
 cd kakomi-code
-cp .env.example .env
 ```
 
-`.env` は必要な場合だけ編集してください。認証トークンをコミットしないでください。
+接続先などを変更する場合だけ `.env` を作成してください。認証トークンをコミットしないでください。
 
 ## 起動
 
@@ -64,6 +63,30 @@ deno task test
 | `template/main.ts` | `deno check template/main.ts` と初期AIの動作       |
 | `website/`         | デスクトップ幅・モバイル幅、リンク、キーボード操作 |
 | セキュリティ境界   | 回帰テスト、`SECURITY.md`、`docs/architecture.md`  |
+
+## リリース
+
+ローカルで配布ファイルを試作する場合は、対象と出力形式を指定します。
+
+```sh
+deno task release:build \
+  --target aarch64-apple-darwin \
+  --output dist/KakomiCode-test-macos-arm64.dmg
+```
+
+対応するターゲットと形式は次のとおりです。
+
+| ターゲット                 | 形式        |
+| -------------------------- | ----------- |
+| `aarch64-apple-darwin`     | `.dmg`      |
+| `x86_64-apple-darwin`      | `.dmg`      |
+| `x86_64-pc-windows-msvc`   | `.msi`      |
+| `x86_64-unknown-linux-gnu` | `.AppImage` |
+
+`v` で始まるタグ（例:
+`v0.1.0`）をGitHubへpushすると、`Release`ワークフローが全OS向けのファイルをビルドし、
+同じタグのGitHub
+Releaseへ添付します。現在はコード署名を行わないため、公開前に各OSで起動確認してください。
 
 ## コーディング方針
 

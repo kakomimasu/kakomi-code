@@ -1,4 +1,9 @@
-# Coding AI icons
+# Icons
+
+`app-icon-1024.png` is the package-ready version of `app-icon.png`. Linux packaging uses the PNG,
+while macOS packaging uses the multi-resolution `app-icon.icns` generated from it.
+
+## Coding AI icons
 
 These UI assets are the official product marks used by the coding-agent picker:
 
