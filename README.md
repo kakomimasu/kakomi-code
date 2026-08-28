@@ -12,7 +12,7 @@ Claude Code に日本語で相談できます。
 [囲みマス公式サイト](https://kakomimasu.com/) · [Deno公式サイト](https://deno.com/)
 
 <p align="center">
-  <img src="website/kakomi-code-to-match.png" alt="囲みコードで作戦を改善し、囲みマスの対戦結果を確認している画面" width="1000">
+  <img src="website/public/kakomi-code-to-match.png" alt="囲みコードで作戦を改善し、囲みマスの対戦結果を確認している画面" width="1000">
 </p>
 
 ## アプリをダウンロード
