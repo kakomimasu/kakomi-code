@@ -1,5 +1,9 @@
+import { Field } from "@base-ui/react/field";
+import { Tabs } from "@base-ui/react/tabs";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { classes } from "./common.tsx";
 import { appIconUrl, claudeIconUrl, codexIconUrl } from "./assets.ts";
+import { Button, TooltipButton, TooltipToggleButton } from "./primitives.tsx";
 import type { AppProps, CodingLogEntry, Message } from "./types.ts";
 
 const AGENTS = [
@@ -82,34 +86,45 @@ function CodingLog({ app, log }: AppProps & { log: CodingLogEntry }) {
 
 function AgentPicker({ app }: AppProps) {
   return (
-    <div className="agent-picker" aria-label="コーディングAIを選択">
+    <ToggleGroup
+      className="agent-picker"
+      aria-label="コーディングAIを選択"
+      value={[app.agent]}
+      disabled={app.busy}
+      onValueChange={(agents) => {
+        const agent = agents[0];
+        if (agent) app.selectAgent(agent);
+      }}
+    >
       {AGENTS.map((agent) => (
-        <button
-          type="button"
-          className={classes("agent-icon", app.agent === agent.id && "active")}
-          onClick={() => app.selectAgent(agent.id)}
-          title={agent.label}
+        <TooltipToggleButton
+          value={agent.id}
+          className={(state) => classes("agent-icon", state.pressed && "active")}
+          label={agent.label}
           disabled={app.busy}
           key={agent.id}
         >
           <img src={agent.image} alt={agent.label} />
-        </button>
+        </TooltipToggleButton>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 
 function ModelPicker({ app }: AppProps) {
   return (
-    <label className="model-picker" title="モデルID。空欄ならCLIのデフォルトを使います。">
-      <span>モデル</span>
-      <input
+    <Field.Root
+      className="model-picker"
+      disabled={app.busy}
+      title="モデルID。空欄ならCLIのデフォルトを使います。"
+    >
+      <Field.Label>モデル</Field.Label>
+      <Field.Control
         type="text"
         value={app.model}
-        onChange={(event) => app.setModel(event.target.value)}
+        onValueChange={(value) => app.setModel(value)}
         onBlur={() => app.saveModel()}
         list={`model-options-${app.agent}`}
-        disabled={app.busy}
         placeholder="デフォルト"
         autoComplete="off"
         spellCheck={false}
@@ -119,7 +134,10 @@ function ModelPicker({ app }: AppProps) {
           <option value={option.value} label={option.label} key={option.value} />
         ))}
       </datalist>
-    </label>
+      <Field.Description className="sr-only">
+        モデルIDを指定します。空欄ならコーディングAIのデフォルトを使います。
+      </Field.Description>
+    </Field.Root>
   );
 }
 
@@ -127,13 +145,12 @@ function SendButton({ app }: AppProps) {
   const running = app.codingAgentRunning;
   const label = running ? "コーディングAIを停止" : "改善を依頼";
   return (
-    <button
+    <TooltipButton
       className={classes("send-button", running && "stop-mode")}
       type={running ? "button" : "submit"}
       disabled={running ? app.stopping : app.busy || !app.idea.trim()}
       onClick={running ? () => app.cancelImprove() : undefined}
-      aria-label={label}
-      title={label}
+      label={label}
     >
       {!running
         ? (
@@ -147,7 +164,7 @@ function SendButton({ app }: AppProps) {
             <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />
           </svg>
         )}
-    </button>
+    </TooltipButton>
   );
 }
 
@@ -160,18 +177,27 @@ function Composer({ app }: AppProps) {
         app.improve();
       }}
     >
-      <textarea
-        value={app.idea}
-        onChange={(event) => app.setIdea(event.target.value)}
-        placeholder="作戦のアイデアを入力…"
-        disabled={app.busy}
-        onCompositionStart={() => app.startComposition()}
-        onCompositionEnd={() => app.endComposition()}
-        onKeyDown={(event) => app.sendOnEnter(event)}
-        onKeyUp={(event) => {
-          if (event.key === "Enter") app.clearCompositionGuard();
-        }}
-      />
+      <Field.Root className="contents" disabled={app.busy}>
+        <Field.Label className="sr-only">作戦のアイデア</Field.Label>
+        <Field.Control
+          render={
+            <textarea
+              value={app.idea}
+              onChange={(event) => app.setIdea(event.target.value)}
+              placeholder="作戦のアイデアを入力…"
+              onCompositionStart={() => app.startComposition()}
+              onCompositionEnd={() => app.endComposition()}
+              onKeyDown={(event) => app.sendOnEnter(event)}
+              onKeyUp={(event) => {
+                if (event.key === "Enter") app.clearCompositionGuard();
+              }}
+            />
+          }
+        />
+        <Field.Description className="sr-only">
+          Enterで送信します。ShiftとEnterを同時に押すと改行します。
+        </Field.Description>
+      </Field.Root>
       <div className="composer-toolbar">
         <AgentPicker app={app} />
         <ModelPicker app={app} />
@@ -187,6 +213,10 @@ function ChatFeed({ app }: AppProps) {
     <div
       className="chat-feed"
       ref={app.chatFeedRef}
+      role="log"
+      aria-label="チャット履歴"
+      aria-live="polite"
+      aria-relevant="additions"
       onScroll={() => app.updateChatScrollState()}
     >
       {app.messages.length === 0 && (
@@ -211,7 +241,12 @@ function ChatFeed({ app }: AppProps) {
 
 function ViewerPanel({ app }: AppProps) {
   return (
-    <section className="viewer-panel" hidden={!app.viewerOpen} aria-label="囲みマスの対戦画面">
+    <Tabs.Panel
+      className="viewer-panel"
+      value="viewer"
+      keepMounted
+      aria-label="囲みマスの対戦画面"
+    >
       {app.viewerLoading && <div className="viewer-loading">対戦画面を読み込んでいます…</div>}
       <iframe
         className="viewer-frame"
@@ -222,31 +257,39 @@ function ViewerPanel({ app }: AppProps) {
         referrerPolicy="no-referrer"
         allow="fullscreen"
       />
-    </section>
+    </Tabs.Panel>
   );
 }
 
 export function ChatPane({ app }: AppProps) {
   return (
-    <section className="chat-pane" hidden={!app.selected}>
+    <Tabs.Root
+      className="chat-pane"
+      id="chat-pane"
+      hidden={!app.selected}
+      value={app.viewerOpen ? "viewer" : "chat"}
+      onValueChange={(value) => value === "viewer" ? app.openViewer() : app.closeViewer()}
+    >
       <header className="pane-header chat-header">
-        <nav className="tab-list chat-view-tabs" aria-label="中央ペインを選択">
-          <button
-            type="button"
-            className={classes("tab", !app.viewerOpen && "active")}
-            onClick={() => app.closeViewer()}
+        <Tabs.List
+          className="tab-list chat-view-tabs"
+          aria-label="中央ペインを選択"
+          activateOnFocus
+        >
+          <Tabs.Tab
+            className={(state) => classes("tab", state.active && "active")}
+            value="chat"
           >
             チャット
-          </button>
-          <button
-            type="button"
-            className={classes("tab", app.viewerOpen && "active")}
-            onClick={() => app.openViewer()}
+          </Tabs.Tab>
+          <Tabs.Tab
+            className={(state) => classes("tab", state.active && "active")}
+            value="viewer"
             disabled={!app.viewerUrl}
           >
             対戦画面
-          </button>
-        </nav>
+          </Tabs.Tab>
+        </Tabs.List>
         <div className="chat-header-actions">
           {app.viewerOpen && (
             <a
@@ -259,23 +302,24 @@ export function ChatPane({ app }: AppProps) {
             </a>
           )}
           {!app.viewerOpen && (
-            <button
+            <Button
               type="button"
-              className="chat-clear-button"
+              variant="subtleDanger"
+              size="sm"
               onClick={() => app.clearChat()}
               disabled={app.busy || app.messages.length === 0}
               title="このエージェントのチャット履歴をクリア"
             >
               チャットをクリア
-            </button>
+            </Button>
           )}
         </div>
       </header>
-      <section className="strategy-panel" hidden={app.viewerOpen}>
+      <Tabs.Panel className="strategy-panel" value="chat" keepMounted>
         <ChatFeed app={app} />
         <Composer app={app} />
-      </section>
+      </Tabs.Panel>
       <ViewerPanel app={app} />
-    </section>
+    </Tabs.Root>
   );
 }

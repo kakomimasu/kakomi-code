@@ -1,4 +1,5 @@
 import { callDesktop } from "../api.ts";
+import type { DialogActions } from "../dialogs.tsx";
 import type { Dashboard, UtilityTab, Version } from "../types.ts";
 import { loadViewerState, saveViewerState } from "../viewer.ts";
 import { displayVersionName, errorMessage, nextFrame } from "./helpers.ts";
@@ -15,7 +16,12 @@ type ChatActions = {
   scroll(force?: boolean): void;
 };
 
-export function useDashboard(store: AppStore, source: SourceActions, chat: ChatActions) {
+export function useDashboard(
+  store: AppStore,
+  source: SourceActions,
+  chat: ChatActions,
+  dialogs: DialogActions,
+) {
   async function refresh(preferred = "") {
     const dashboard = await callDesktop<Dashboard>("getDashboard");
     const current = store.getState();
@@ -81,10 +87,14 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
     const sourceVersionItem = current.dashboard.versions.find((version) =>
       version.path === sourceVersion
     );
-    const name = prompt(
-      "エージェント名を入力してください",
-      sourceVersionItem ? displayVersionName(sourceVersionItem.name) : "",
-    );
+    const name = await dialogs.requestText({
+      title: sourceVersionItem ? "エージェントを複製" : "エージェントを作成",
+      description: sourceVersionItem
+        ? "複製するエージェントの新しい名前を入力してください。"
+        : "作戦が分かるような名前を入力してください。",
+      initialValue: sourceVersionItem ? displayVersionName(sourceVersionItem.name) : "",
+      confirmLabel: sourceVersionItem ? "複製" : "作成",
+    });
     if (!name?.trim()) return;
     store.setState({ busy: true, status: "コピー中…" });
     try {
@@ -104,7 +114,12 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
 
   async function renameVersion(version: Version) {
     const currentName = displayVersionName(version.name);
-    const name = prompt("新しいAI名を入力してください", currentName);
+    const name = await dialogs.requestText({
+      title: "名前を変更",
+      description: "エージェントの新しい名前を入力してください。",
+      initialValue: currentName,
+      confirmLabel: "変更",
+    });
     if (!name?.trim() || name.trim() === currentName) return;
     store.setState({ busy: true, status: "名前を変更しています…" });
     try {
@@ -155,7 +170,13 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
 
   async function deleteVersion(version: Version) {
     const name = displayVersionName(version.name);
-    if (!confirm(`${name}を削除しますか？`)) return;
+    const confirmed = await dialogs.requestConfirmation({
+      title: `${name} を削除しますか？`,
+      description: "このエージェントのソースコードとチャット履歴が削除されます。元に戻せません。",
+      confirmLabel: "削除",
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       await callDesktop("deleteVersion", [version.path]);
       const messagesByVersion = { ...store.getState().messagesByVersion };

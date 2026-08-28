@@ -1,5 +1,7 @@
+import { Tabs } from "@base-ui/react/tabs";
 import type { CSSProperties, ReactNode } from "react";
 import { classes } from "./common.tsx";
+import { Button, StatusText } from "./primitives.tsx";
 import type { AppProps, Board, Opponent } from "./types.ts";
 
 type Choice = { name: string };
@@ -94,7 +96,7 @@ function BoardPreview({ app }: AppProps) {
 function MatchPanel({ app }: AppProps) {
   const controlsDisabled = app.busy || app.matchRunning;
   return (
-    <section className="tab-panel match-panel" hidden={app.tab !== "match"}>
+    <Tabs.Panel className="tab-panel match-panel" value="match" keepMounted>
       <div className="match-card">
         <div className="match-card-heading">
           <div>
@@ -131,15 +133,16 @@ function MatchPanel({ app }: AppProps) {
           <p>{app.selectedOpponent.description}</p>
         </div>
         <BoardPreview app={app} />
-        <button
+        <Button
           type="button"
-          className="match-button"
+          size="lg"
+          className="mt-4 w-full rounded-[10px]"
           onClick={() => app.startMatch()}
           disabled={controlsDisabled}
         >
           対戦を始める
-        </button>
-        <p className="status">{app.matchStatus}</p>
+        </Button>
+        <StatusText>{app.matchStatus}</StatusText>
       </div>
       <section className="match-log-card">
         <h2>対戦中のクライアント出力</h2>
@@ -150,25 +153,25 @@ function MatchPanel({ app }: AppProps) {
           {app.matchLogs.length ? app.matchLogs.join("\n") : "まだ対戦を開始していません。"}
         </pre>
       </section>
-    </section>
+    </Tabs.Panel>
   );
 }
 
 function SourcePanel({ app }: AppProps) {
   return (
-    <section className="tab-panel source-panel" hidden={app.tab !== "source"}>
+    <Tabs.Panel className="tab-panel source-panel" value="source" keepMounted>
       <div className="source-heading">
         <div>
           <h2>ソースコード</h2>
         </div>
-        <button
+        <Button
           type="button"
-          className="source-save-button"
+          className="min-w-[68px] rounded-[9px]"
           onClick={() => app.saveSource()}
           disabled={app.busy}
         >
           保存
-        </button>
+        </Button>
       </div>
       <div
         className="source-output"
@@ -176,30 +179,35 @@ function SourcePanel({ app }: AppProps) {
         role="region"
         aria-label="main.ts ソースコードエディタ"
       />
-      <p className="status">{app.sourceStatus}</p>
-    </section>
+      <StatusText>{app.sourceStatus}</StatusText>
+    </Tabs.Panel>
   );
 }
 
 export function UtilityPane({ app }: AppProps) {
   return (
-    <section className="utility-pane" hidden={!app.selected}>
+    <Tabs.Root
+      className="utility-pane"
+      id="utility-pane"
+      hidden={!app.selected}
+      value={app.tab}
+      onValueChange={(value) => app.selectTab(value as "source" | "match")}
+    >
       <nav className="tabs" aria-label="ツールを選択">
-        <div className="tab-list">
+        <Tabs.List className="tab-list" activateOnFocus>
           {(["source", "match"] as const).map((tab) => (
-            <button
-              type="button"
-              className={classes("tab", app.tab === tab && "active")}
-              onClick={() => app.selectTab(tab)}
+            <Tabs.Tab
+              className={(state) => classes("tab", state.active && "active")}
+              value={tab}
               key={tab}
             >
               {tab === "source" ? "ソース" : "対戦"}
-            </button>
+            </Tabs.Tab>
           ))}
-        </div>
+        </Tabs.List>
       </nav>
       <SourcePanel app={app} />
       <MatchPanel app={app} />
-    </section>
+    </Tabs.Root>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { callDesktop } from "../api.ts";
 import { BOARD_PREVIEWS, MODEL_OPTIONS, PRACTICE_OPPONENTS } from "../data.ts";
+import type { DialogActions } from "../dialogs.tsx";
 import type { KakomiApp, UtilityTab } from "../types.ts";
 import { displayVersionName, errorMessage, nextFrame } from "./helpers.ts";
 import { useAppState } from "./use-app-state.ts";
@@ -12,7 +13,7 @@ import { useMatch } from "./use-match.ts";
 import { usePaneResize } from "./use-pane-resize.ts";
 import { useSourceEditor } from "./use-source-editor.ts";
 
-export function useKakomiApp(): KakomiApp {
+export function useKakomiApp(dialogs: DialogActions): KakomiApp {
   const { state, store } = useAppState();
   const darkMode = useColorScheme();
   const paneResize = usePaneResize();
@@ -20,9 +21,9 @@ export function useKakomiApp(): KakomiApp {
   const matchOutputRef = useRef<HTMLPreElement>(null);
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const source = useSourceEditor(store, sourceEditorRef, darkMode);
-  const chat = useChat(store, chatFeedRef, source);
+  const chat = useChat(store, chatFeedRef, source, dialogs);
   const match = useMatch(store, matchOutputRef, chat.scroll);
-  const dashboard = useDashboard(store, source, chat);
+  const dashboard = useDashboard(store, source, chat, dialogs);
   const pollLogs = useLogPolling(store, source, chat, match);
 
   async function fitWindowToScreen() {
@@ -42,7 +43,7 @@ export function useKakomiApp(): KakomiApp {
 
   useEffect(() => {
     let cancelled = false;
-    let timer: number | undefined;
+    let timer: ReturnType<typeof setInterval> | undefined;
     void (async () => {
       try {
         await fitWindowToScreen();
@@ -117,6 +118,8 @@ export function useKakomiApp(): KakomiApp {
     sourceEditorRef,
     startResize: paneResize.startResize,
     startUtilityResize: paneResize.startUtilityResize,
+    resizeSidebar: paneResize.resizeSidebar,
+    resizeUtility: paneResize.resizeUtility,
     setIdea: chat.setIdea,
     setModel: chat.setModel,
     setAi: match.setAi,

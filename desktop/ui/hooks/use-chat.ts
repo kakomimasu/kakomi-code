@@ -1,5 +1,6 @@
 import { type KeyboardEvent, type RefObject, type SyntheticEvent, useRef } from "react";
 import { callDesktop } from "../api.ts";
+import type { DialogActions } from "../dialogs.tsx";
 import type { CodingAgent, Message } from "../types.ts";
 import { errorMessage, nextFrame } from "./helpers.ts";
 import { type AppStore, saveAgentPreference, saveModelPreferences } from "./use-app-state.ts";
@@ -8,6 +9,7 @@ export function useChat(
   store: AppStore,
   chatFeedRef: RefObject<HTMLDivElement | null>,
   source: { loadSource(versionPath?: string): Promise<void> },
+  dialogs: DialogActions,
 ) {
   const flags = useRef({
     autoScroll: true,
@@ -64,7 +66,13 @@ export function useChat(
   async function clear() {
     const current = store.getState();
     if (!current.selected || current.busy || currentMessages().length === 0) return;
-    if (!confirm("このエージェントのチャット履歴をすべて削除しますか？")) return;
+    const confirmed = await dialogs.requestConfirmation({
+      title: "チャット履歴をクリアしますか？",
+      description: "このエージェントとのチャット履歴がすべて削除されます。元に戻せません。",
+      confirmLabel: "クリア",
+      danger: true,
+    });
+    if (!confirmed) return;
     store.setState({ messagesByVersion: { ...current.messagesByVersion, [current.selected]: [] } });
     const saved = await persistHistory();
     store.setState({

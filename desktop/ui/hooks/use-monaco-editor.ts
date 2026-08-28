@@ -23,11 +23,6 @@ type AmdRequire = {
   config(options: { paths: { vs: string } }): void;
 };
 
-declare global {
-  var monaco: MonacoApi;
-  var require: AmdRequire;
-}
-
 type Deferred = {
   promise: Promise<void>;
   resolve: () => void;
@@ -68,17 +63,23 @@ export function useMonacoEditor({
 
   useEffect(() => {
     const pending = readyRef.current!;
-    if (typeof globalThis.require !== "function" || !containerRef.current) {
+    const amdRequire = Reflect.get(globalThis, "require") as unknown as AmdRequire | undefined;
+    if (typeof amdRequire !== "function" || !containerRef.current) {
       pending.reject(new Error("Monaco Editorを読み込めませんでした。"));
       return;
     }
     let disposed = false;
-    globalThis.require.config({ paths: { vs: "/vs" } });
-    globalThis.require(
+    amdRequire.config({ paths: { vs: "/vs" } });
+    amdRequire(
       ["vs/editor/editor.main"],
       () => {
         if (disposed || !containerRef.current) return;
-        const editor = globalThis.monaco.editor.create(containerRef.current, {
+        const monaco = Reflect.get(globalThis, "monaco") as MonacoApi | undefined;
+        if (!monaco) {
+          pending.reject(new Error("Monaco Editorの初期化に失敗しました。"));
+          return;
+        }
+        const editor = monaco.editor.create(containerRef.current, {
           value: "",
           language: "typescript",
           theme: darkModeRef.current ? "vs-dark" : "vs",
@@ -96,7 +97,7 @@ export function useMonacoEditor({
         editorRef.current = editor;
         editor.onDidChangeModelContent(() => onChangeRef.current(editor.getValue()));
         editor.addCommand(
-          globalThis.monaco.KeyMod.CtrlCmd | globalThis.monaco.KeyCode.KeyS,
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
           () => onSaveRef.current(),
         );
         const resizeObserver = new ResizeObserver(() => editor.layout());
@@ -116,7 +117,8 @@ export function useMonacoEditor({
   }, [containerRef]);
 
   useEffect(() => {
-    if (editorRef.current) globalThis.monaco.editor.setTheme(darkMode ? "vs-dark" : "vs");
+    const monaco = Reflect.get(globalThis, "monaco") as MonacoApi | undefined;
+    if (editorRef.current) monaco?.editor.setTheme(darkMode ? "vs-dark" : "vs");
   }, [darkMode]);
 
   return {

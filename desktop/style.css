@@ -1,3 +1,7 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 :root {
   color: #20201f;
   background: #f4f4f2;
@@ -10,6 +14,11 @@
   --muted: #777773;
   --panel: #fff;
   --sidebar: #f5f5f3;
+}
+
+#root {
+  height: 100%;
+  isolation: isolate;
 }
 
 * {
@@ -267,6 +276,19 @@ a:focus-visible {
   white-space: pre-wrap;
 }
 
+.status[data-tone="progress"] {
+  color: #2563eb;
+}
+
+.status[data-tone="success"] {
+  color: #26765a;
+}
+
+.status[data-tone="error"] {
+  color: #b73b31;
+  font-weight: 600;
+}
+
 .resize-handle {
   position: relative;
   z-index: 3;
@@ -292,6 +314,16 @@ a:focus-visible {
 .resize-handle:hover::after {
   width: 2px;
   background: #b9b9b4;
+}
+
+.resize-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.resize-handle:focus-visible::after {
+  width: 3px;
+  background: var(--accent);
 }
 
 .chat-pane,
@@ -366,22 +398,6 @@ a:focus-visible {
   color: #2d2d2a;
   font-size: 14px;
   font-weight: 680;
-}
-
-.chat-clear-button {
-  padding: 5px 8px;
-  border: 1px solid #deded9;
-  border-radius: 7px;
-  background: #fff;
-  color: #777773;
-  font-size: 11px;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-
-.chat-clear-button:hover:not(:disabled) {
-  border-color: #d9b3ad;
-  background: #fff7f5;
-  color: #b94b3d;
 }
 
 .chat-header-actions {
@@ -828,9 +844,7 @@ a:focus-visible {
   text-align: right;
 }
 
-.send-button,
-.match-button,
-.source-save-button {
+.send-button {
   border: 0;
   background: var(--accent);
   color: #fff;
@@ -838,15 +852,11 @@ a:focus-visible {
   transition: background 120ms ease, transform 120ms ease;
 }
 
-.send-button:hover:not(:disabled),
-.match-button:hover:not(:disabled),
-.source-save-button:hover:not(:disabled) {
+.send-button:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
-.send-button:active:not(:disabled),
-.match-button:active:not(:disabled),
-.source-save-button:active:not(:disabled) {
+.send-button:active:not(:disabled) {
   transform: translateY(1px);
 }
 
@@ -924,13 +934,6 @@ a:focus-visible {
 .source-output:focus-within {
   border-color: #b9b9b4;
   box-shadow: 0 0 0 3px #00000005;
-}
-
-.source-save-button {
-  min-width: 68px;
-  padding: 8px 14px;
-  border-radius: 9px;
-  font-size: 13px;
 }
 
 .source-panel > .status {
@@ -1177,14 +1180,6 @@ a:focus-visible {
   background: #dc6b5c;
 }
 
-.match-button {
-  width: 100%;
-  margin-top: 16px;
-  padding: 11px;
-  border-radius: 10px;
-  font-size: 13px;
-}
-
 .match-log-card {
   margin-top: 14px;
 }
@@ -1257,6 +1252,18 @@ a:focus-visible {
     color: #b3b3ac;
   }
 
+  .status[data-tone="progress"] {
+    color: #93c5fd;
+  }
+
+  .status[data-tone="success"] {
+    color: #86d3b4;
+  }
+
+  .status[data-tone="error"] {
+    color: #ff9a8f;
+  }
+
   .icon-button,
   .version-item,
   .coding-log,
@@ -1301,21 +1308,13 @@ a:focus-visible {
     background: #65655f;
   }
 
+  .resize-handle:focus-visible::after {
+    background: var(--accent);
+  }
+
   .pane-header,
   .tabs {
     background: #1d1d1b;
-  }
-
-  .chat-clear-button {
-    border-color: #484843;
-    background: #272725;
-    color: #b8b8b1;
-  }
-
-  .chat-clear-button:hover:not(:disabled) {
-    border-color: #73443f;
-    background: #352422;
-    color: #ff9a8f;
   }
 
   .tab-list,
@@ -1480,12 +1479,21 @@ a:focus-visible {
 @media (max-width: 1100px) {
   .workspace {
     grid-template-columns:
-      210px 5px minmax(280px, 1fr) 5px
+      210px minmax(280px, 1fr) 5px
       clamp(340px, var(--utility-width), 48vw);
   }
 
   .sidebar {
     padding-inline: 9px;
+    border-right: 1px solid var(--line);
+  }
+
+  .sidebar-resize-handle {
+    display: none;
+  }
+
+  .empty-workspace {
+    grid-column: 2 / -1;
   }
 
   .selected-version {
@@ -1507,7 +1515,7 @@ a:focus-visible {
 
 @media (max-width: 760px) {
   .workspace {
-    grid-template-columns: 155px 4px minmax(0, 1fr);
+    grid-template-columns: 155px minmax(0, 1fr);
     grid-template-rows: minmax(300px, 1fr) minmax(300px, 1fr);
   }
 
@@ -1516,27 +1524,23 @@ a:focus-visible {
   }
 
   .resize-handle {
-    grid-row: 1 / -1;
-  }
-
-  .utility-resize-handle {
     display: none;
   }
 
   .chat-pane {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1;
     border-right: 0;
   }
 
   .utility-pane {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 2;
     border-top: 1px solid var(--line);
   }
 
   .empty-workspace {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1 / -1;
   }
 

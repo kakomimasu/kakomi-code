@@ -1,31 +1,13 @@
-import type { CSSProperties, PointerEventHandler } from "react";
+import { Tooltip } from "@base-ui/react/tooltip";
+import type { CSSProperties } from "react";
 import { appIconUrl } from "./assets.ts";
 import { ChatPane } from "./chat.tsx";
+import { AppDialog, useDialogController } from "./dialogs.tsx";
 import { useKakomiApp } from "./hooks/use-kakomi-app.ts";
+import { PANE_WIDTHS } from "./hooks/use-pane-resize.ts";
+import { ResizeHandle } from "./primitives.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import { UtilityPane } from "./utility.tsx";
-
-function ResizeHandle({
-  hidden,
-  side,
-  label,
-  onPointerDown,
-}: {
-  hidden: boolean;
-  side: "sidebar" | "utility";
-  label: string;
-  onPointerDown: PointerEventHandler<HTMLDivElement>;
-}) {
-  return (
-    <div
-      className={`resize-handle ${side}-resize-handle`}
-      hidden={hidden}
-      role="separator"
-      aria-label={label}
-      onPointerDown={onPointerDown}
-    />
-  );
-}
 
 function EmptyWorkspace({ hidden }: { hidden: boolean }) {
   return (
@@ -42,7 +24,8 @@ function EmptyWorkspace({ hidden }: { hidden: boolean }) {
 }
 
 export function App() {
-  const app = useKakomiApp();
+  const dialogs = useDialogController();
+  const app = useKakomiApp(dialogs);
   const noSelection = !app.selected;
   const workspaceStyle = {
     "--sidebar-width": `${app.sidebarWidth}px`,
@@ -50,23 +33,38 @@ export function App() {
   } as CSSProperties;
 
   return (
-    <main className="workspace" style={workspaceStyle}>
-      <Sidebar app={app} />
-      <ResizeHandle
-        hidden={noSelection}
-        side="sidebar"
-        label="サイドバーの幅を変更"
-        onPointerDown={(event) => app.startResize(event)}
-      />
-      <ChatPane app={app} />
-      <ResizeHandle
-        hidden={noSelection}
-        side="utility"
-        label="ソースと対戦ペインの幅を変更"
-        onPointerDown={(event) => app.startUtilityResize(event)}
-      />
-      <UtilityPane app={app} />
-      <EmptyWorkspace hidden={!noSelection} />
-    </main>
+    <Tooltip.Provider delay={500}>
+      <main className="workspace" style={workspaceStyle}>
+        <Sidebar app={app} />
+        <ResizeHandle
+          hidden={noSelection}
+          side="sidebar"
+          label="サイドバーの幅を変更"
+          controls="agent-sidebar"
+          value={app.sidebarWidth}
+          minimum={PANE_WIDTHS.sidebar.min}
+          maximum={PANE_WIDTHS.sidebar.max}
+          defaultValue={PANE_WIDTHS.sidebar.default}
+          onValueChange={app.resizeSidebar}
+          onPointerDown={(event) => app.startResize(event)}
+        />
+        <ChatPane app={app} />
+        <ResizeHandle
+          hidden={noSelection}
+          side="utility"
+          label="ソースと対戦ペインの幅を変更"
+          controls="utility-pane"
+          value={app.utilityWidth}
+          minimum={PANE_WIDTHS.utility.min}
+          maximum={PANE_WIDTHS.utility.max}
+          defaultValue={PANE_WIDTHS.utility.default}
+          onValueChange={app.resizeUtility}
+          onPointerDown={(event) => app.startUtilityResize(event)}
+        />
+        <UtilityPane app={app} />
+        <EmptyWorkspace hidden={!noSelection} />
+        <AppDialog controller={dialogs} />
+      </main>
+    </Tooltip.Provider>
   );
 }

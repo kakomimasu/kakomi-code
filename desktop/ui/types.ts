@@ -67,6 +67,8 @@ export type KakomiApp = {
   sourceEditorRef: RefObject<HTMLDivElement | null>;
   startResize: PointerEventHandler<HTMLDivElement>;
   startUtilityResize: PointerEventHandler<HTMLDivElement>;
+  resizeSidebar(width: number): void;
+  resizeUtility(width: number): void;
   setIdea(value: string): void;
   setModel(value: string): void;
   setAi(value: string): void;
