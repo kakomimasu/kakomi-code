@@ -113,7 +113,7 @@ function MatchPanel({ app }: AppProps) {
             selected={app.ai}
             disabled={controlsDisabled}
             describe={(opponent) => opponent.level}
-            onSelect={(name) => app.ai = name}
+            onSelect={(name) => app.setAi(name)}
           />
           <ChoiceGroup<Board>
             legend="盤面"
@@ -123,7 +123,7 @@ function MatchPanel({ app }: AppProps) {
             selected={app.board}
             disabled={controlsDisabled}
             describe={(board) => <>{board.width} × {board.height}</>}
-            onSelect={(name) => app.board = name}
+            onSelect={(name) => app.setBoard(name)}
           />
         </div>
         <div className="opponent-description" aria-live="polite">
@@ -145,9 +145,7 @@ function MatchPanel({ app }: AppProps) {
         <h2>対戦中のクライアント出力</h2>
         <pre
           className="output match-output"
-          ref={(element) => {
-            app.$refs.matchOutput = element;
-          }}
+          ref={app.matchOutputRef}
         >
           {app.matchLogs.length ? app.matchLogs.join("\n") : "まだ対戦を開始していません。"}
         </pre>
@@ -174,9 +172,7 @@ function SourcePanel({ app }: AppProps) {
       </div>
       <div
         className="source-output"
-        ref={(element) => {
-          app.$refs.sourceEditor = element;
-        }}
+        ref={app.sourceEditorRef}
         role="region"
         aria-label="main.ts ソースコードエディタ"
       />

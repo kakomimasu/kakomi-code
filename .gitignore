@@ -8,5 +8,4 @@
 /app.exe
 /dist/
 node_modules/
-desktop/ui.bundle.js
 versions/*

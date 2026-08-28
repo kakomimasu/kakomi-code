@@ -1,4 +1,5 @@
 import { classes, CopyIcon, DeleteIcon, EditIcon } from "./common.tsx";
+import { appIconUrl } from "./assets.ts";
 import type { AppProps, Version } from "./types.ts";
 
 function VersionRow({ app, version }: AppProps & { version: Version }) {
@@ -49,7 +50,7 @@ export function Sidebar({ app }: AppProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <img src="/assets/app-icon.png" alt="" />
+        <img src={appIconUrl} alt="" />
         <div>
           <h1>囲みコード</h1>
         </div>

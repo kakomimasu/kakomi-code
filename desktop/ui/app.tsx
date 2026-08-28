@@ -1,33 +1,9 @@
-import { type CSSProperties, type PointerEventHandler, useEffect, useRef, useState } from "react";
-import { createKakomiApp } from "../ui_state.js";
+import type { CSSProperties, PointerEventHandler } from "react";
+import { appIconUrl } from "./assets.ts";
 import { ChatPane } from "./chat.tsx";
+import { useKakomiApp } from "./hooks/use-kakomi-app.ts";
 import { Sidebar } from "./sidebar.tsx";
-import type { KakomiApp } from "./types.ts";
 import { UtilityPane } from "./utility.tsx";
-
-function useKakomiApp() {
-  const [, setRevision] = useState(0);
-  const mounted = useRef(true);
-  const appRef = useRef<KakomiApp | null>(null);
-
-  if (!appRef.current) {
-    appRef.current = createKakomiApp(() => {
-      if (mounted.current) setRevision((revision) => revision + 1);
-    });
-  }
-  const app = appRef.current;
-
-  useEffect(() => {
-    mounted.current = true;
-    app.init();
-    return () => {
-      mounted.current = false;
-      app.destroy();
-    };
-  }, [app]);
-
-  return app;
-}
 
 function ResizeHandle({
   hidden,
@@ -55,7 +31,7 @@ function EmptyWorkspace({ hidden }: { hidden: boolean }) {
   return (
     <section className="empty-workspace" hidden={hidden}>
       <div className="empty-workspace-card">
-        <img src="/assets/app-icon.png" alt="" />
+        <img src={appIconUrl} alt="" />
         <h2>エージェントを選択または作成してください</h2>
         <p>
           左の＋ボタンからエージェントを作成すると、チャットとソースコードを使えるようになります。

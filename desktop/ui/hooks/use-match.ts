@@ -1,0 +1,104 @@
+import type { RefObject } from "react";
+import { callDesktop } from "../api.ts";
+import { isTrustedViewerUrl, saveViewerState } from "../viewer.ts";
+import { displayVersionName, errorMessage, nextFrame } from "./helpers.ts";
+import type { AppStore } from "./use-app-state.ts";
+
+export function useMatch(
+  store: AppStore,
+  matchOutputRef: RefObject<HTMLPreElement | null>,
+  scrollChat: (force?: boolean) => void,
+) {
+  function scrollLogs() {
+    void nextFrame(() => {
+      const output = matchOutputRef.current;
+      if (output) output.scrollTop = output.scrollHeight;
+    });
+  }
+
+  async function startMatch() {
+    const current = store.read();
+    if (!current.selected || current.busy) return;
+    const selectedVersion = current.dashboard.versions.find((version) =>
+      version.path === current.selected
+    );
+    store.update({
+      matchVersion: current.selected,
+      busy: true,
+      matchStatus: "参加しています…",
+      viewerOpen: false,
+      viewerLoading: false,
+      viewerUrl: "",
+      viewerStates: saveViewerState(current.viewerStates, current.selected, "", false),
+      matchLogs: [],
+    });
+    try {
+      const result = await callDesktop<{ message: string; viewerUrl: string }>("startMatch", [{
+        agentName: displayVersionName(selectedVersion?.name || "エルメマス"),
+        aiName: current.ai,
+        board: current.board,
+        versionDir: current.selected,
+      }]);
+      const active = store.read();
+      store.update({
+        matchStatus: result.message,
+        viewerUrl: result.viewerUrl,
+        viewerStates: saveViewerState(
+          active.viewerStates,
+          active.selected,
+          result.viewerUrl,
+          active.viewerOpen,
+        ),
+        matchRunning: true,
+      });
+    } catch (error) {
+      store.update({ matchStatus: `エラー: ${errorMessage(error)}` });
+    } finally {
+      store.update({ busy: false });
+      scrollLogs();
+    }
+  }
+
+  function openViewer() {
+    const current = store.read();
+    if (!isTrustedViewerUrl(current.viewerUrl)) {
+      store.update({ matchStatus: "エラー: 対戦画面のURLを確認できませんでした。" });
+      return;
+    }
+    store.update({
+      viewerLoading: true,
+      viewerOpen: true,
+      viewerStates: saveViewerState(
+        current.viewerStates,
+        current.selected,
+        current.viewerUrl,
+        true,
+      ),
+    });
+  }
+
+  function closeViewer() {
+    const current = store.read();
+    store.update({
+      viewerOpen: false,
+      viewerLoading: false,
+      viewerStates: saveViewerState(
+        current.viewerStates,
+        current.selected,
+        current.viewerUrl,
+        false,
+      ),
+    });
+    scrollChat(true);
+  }
+
+  return {
+    startMatch,
+    openViewer,
+    closeViewer,
+    scrollLogs,
+    setAi: (ai: string) => store.update({ ai }),
+    setBoard: (board: string) => store.update({ board }),
+    setViewerLoading: (viewerLoading: boolean) => store.update({ viewerLoading }),
+  };
+}

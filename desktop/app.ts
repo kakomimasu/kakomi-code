@@ -3,6 +3,7 @@ import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
 import { dependencyCacheArgs, findExecutable } from "./command_resolver.ts";
 import { hasValidApiToken, isTrustedLoopbackRequest } from "./http_security.ts";
+import { staticAssetRelativePath, staticContentType } from "./static_assets.ts";
 import { createTerminalTextSanitizer, stripTerminalSequences } from "./terminal_text.ts";
 import { validateWindowGeometry } from "./window_geometry.ts";
 import {
@@ -894,13 +895,40 @@ expose("improveWithAgent", async (value: unknown) => {
   }
 });
 
-const assets = new Map([
-  ["/style.css", ["style.css", "text/css; charset=utf-8"]],
-  ["/ui.js", ["ui.bundle.js", "text/javascript; charset=utf-8"]],
-  ["/assets/codex.webp", ["assets/codex.webp", "image/webp"]],
-  ["/assets/claude.svg", ["assets/claude.svg", "image/svg+xml"]],
-  ["/assets/app-icon.png", ["assets/app-icon.png", "image/png"]],
-]);
+function resolveStaticPath(pathname: string): { file: URL; relativePath: string } | null {
+  const relativePath = staticAssetRelativePath(pathname);
+  if (!relativePath) return null;
+  return {
+    file: new URL(`../dist/${relativePath}`, import.meta.url),
+    relativePath,
+  };
+}
+
+async function serveStaticFile(request: Request, pathname: string): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  const asset = resolveStaticPath(pathname);
+  if (!asset) return new Response("Not found", { status: 404 });
+  try {
+    let body = await Deno.readFile(asset.file);
+    if (asset.relativePath === "index.html") {
+      const html = new TextDecoder().decode(body).replace("__KAKOMI_API_TOKEN__", apiToken);
+      body = new TextEncoder().encode(html);
+    }
+    return new Response(request.method === "HEAD" ? null : body, {
+      headers: {
+        "cache-control": asset.relativePath.startsWith("assets/")
+          ? "public, max-age=31536000, immutable"
+          : "no-cache",
+        "content-type": staticContentType(asset.relativePath),
+      },
+    });
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return new Response("Not found", { status: 404 });
+    throw error;
+  }
+}
 
 Deno.serve({ hostname: "127.0.0.1" }, async (request) => {
   const url = new URL(request.url);
@@ -929,44 +957,5 @@ Deno.serve({ hostname: "127.0.0.1" }, async (request) => {
       });
     }
   }
-  if (url.pathname === "/" || url.pathname === "/index.html") {
-    const html = await Deno.readTextFile(new URL("./index.html", import.meta.url));
-    const bootstrap = `<meta name="kakomi-api-token" content="${apiToken}">`;
-    return new Response(html.replace("</head>", `  ${bootstrap}\n  </head>`), {
-      headers: {
-        "cache-control": "no-store",
-        "content-type": "text/html; charset=utf-8",
-      },
-    });
-  }
-  if (url.pathname.startsWith("/monaco/")) {
-    let relativePath = "";
-    try {
-      relativePath = decodeURIComponent(url.pathname.slice("/monaco/".length));
-    } catch {
-      return new Response("Not found", { status: 404 });
-    }
-    if (
-      !relativePath || relativePath.includes("\\") ||
-      relativePath.split("/").some((part) => part === ".." || part === ".")
-    ) {
-      return new Response("Not found", { status: 404 });
-    }
-    try {
-      const file = new URL(`../node_modules/monaco-editor/min/${relativePath}`, import.meta.url);
-      const contentType = relativePath.endsWith(".css")
-        ? "text/css; charset=utf-8"
-        : "text/javascript; charset=utf-8";
-      return new Response(await Deno.readFile(file), {
-        headers: { "content-type": contentType },
-      });
-    } catch {
-      return new Response("Not found", { status: 404 });
-    }
-  }
-  const asset = assets.get(url.pathname);
-  if (!asset) return new Response("Not found", { status: 404 });
-  return new Response(await Deno.readFile(new URL(`./${asset[0]}`, import.meta.url)), {
-    headers: { "content-type": asset[1] },
-  });
+  return await serveStaticFile(request, url.pathname);
 });

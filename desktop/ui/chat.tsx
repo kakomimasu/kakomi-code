@@ -1,9 +1,10 @@
 import { classes } from "./common.tsx";
+import { appIconUrl, claudeIconUrl, codexIconUrl } from "./assets.ts";
 import type { AppProps, CodingLogEntry, Message } from "./types.ts";
 
 const AGENTS = [
-  { id: "codex", label: "Codex", image: "/assets/codex.webp" },
-  { id: "claude", label: "Claude Code", image: "/assets/claude.svg" },
+  { id: "codex", label: "Codex", image: codexIconUrl },
+  { id: "claude", label: "Claude Code", image: claudeIconUrl },
 ] as const;
 
 function ChatMessage({
@@ -105,7 +106,7 @@ function ModelPicker({ app }: AppProps) {
       <input
         type="text"
         value={app.model}
-        onChange={(event) => app.model = event.target.value}
+        onChange={(event) => app.setModel(event.target.value)}
         onBlur={() => app.saveModel()}
         list={`model-options-${app.agent}`}
         disabled={app.busy}
@@ -161,7 +162,7 @@ function Composer({ app }: AppProps) {
     >
       <textarea
         value={app.idea}
-        onChange={(event) => app.idea = event.target.value}
+        onChange={(event) => app.setIdea(event.target.value)}
         placeholder="作戦のアイデアを入力…"
         disabled={app.busy}
         onCompositionStart={() => app.startComposition()}
@@ -185,14 +186,12 @@ function ChatFeed({ app }: AppProps) {
   return (
     <div
       className="chat-feed"
-      ref={(element) => {
-        app.$refs.chatFeed = element;
-      }}
+      ref={app.chatFeedRef}
       onScroll={() => app.updateChatScrollState()}
     >
       {app.messages.length === 0 && (
         <article className="welcome">
-          <img src="/assets/app-icon.png" alt="" />
+          <img src={appIconUrl} alt="" />
           <h2>どんな作戦にしますか？</h2>
           <p>アイデアを伝えると選択中のエージェントを改善します。</p>
         </article>
@@ -218,7 +217,7 @@ function ViewerPanel({ app }: AppProps) {
         className="viewer-frame"
         title="囲みマスの対戦画面"
         src={app.viewerOpen ? app.viewerUrl : "about:blank"}
-        onLoad={() => app.viewerLoading = false}
+        onLoad={() => app.setViewerLoading(false)}
         sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
         referrerPolicy="no-referrer"
         allow="fullscreen"

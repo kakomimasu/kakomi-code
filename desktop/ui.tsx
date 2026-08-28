@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import "./style.css";
 import { App } from "./ui/app.tsx";
 
 const rootElement = document.getElementById("root");

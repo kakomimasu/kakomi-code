@@ -8,10 +8,12 @@ Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプ�
 
 ```mermaid
 flowchart LR
-  Launcher[run.sh / run.bat] --> App[desktop/app.ts]
-  Release[GitHub Releasesの配布アプリ] --> App
+  Launcher[run.sh / run.bat] --> Vite[Vite build / dist]
+  Release[GitHub Releasesの配布アプリ] --> Entry[server.ts]
+  Vite --> Entry
+  Entry --> App[desktop/app.ts]
   App --> Window[CEFのBrowserWindow]
-  Window --> UI[index.html / ui.js]
+  Window --> UI[dist/index.html / assets]
   UI --> LocalAPI[127.0.0.1 のローカルAPI]
   UI --> Viewer[チャット欄の対戦ビュー]
   LocalAPI --> Versions[versions/*/main.ts]
@@ -24,45 +26,55 @@ flowchart LR
 
 ## コンポーネント
 
-| 場所                            | 役割                                                            |
-| ------------------------------- | --------------------------------------------------------------- |
-| `run.sh`, `run.bat`             | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する     |
-| `scripts/build_release.ts`      | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする         |
-| `.github/workflows/release.yml` | タグから各OS向け配布ファイルとGitHub Releaseを作る              |
-| `desktop/app.ts`                | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理 |
-| `desktop/app_paths.ts`          | ソース版・配布版の作業フォルダとテンプレートを解決する          |
-| `desktop/command_resolver.ts`   | Deno、Codex、Claude Codeの実行ファイルをユーザー環境から探す    |
-| `desktop/index.html`            | アプリ画面の構造とAPIトークンの埋め込み先                       |
-| `desktop/ui.tsx`, `desktop/ui/` | Reactの起動処理と画面コンポーネント                             |
-| `desktop/ui_state.js`           | 画面状態、ローカルAPI呼び出し、エディター操作                   |
-| `desktop/version_manager.ts`    | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
-| `desktop/chat_history.ts`       | チャット履歴の検証と原子的な保存                                |
-| `desktop/http_security.ts`      | ループバック・同一オリジン・APIトークンの検証                   |
-| `desktop/terminal_text.ts`      | 端末出力からANSI制御シーケンスを除去                            |
-| `desktop/window_geometry.ts`    | 利用可能な画面領域とウィンドウサイズの検証                      |
-| `template/main.ts`              | 新しいAIの初期コードと囲みマスクライアントの設定                |
-| `website/`                      | GitHub Pagesで公開する、アプリとは独立した静的サイト            |
+| 場所                             | 役割                                                            |
+| -------------------------------- | --------------------------------------------------------------- |
+| `run.sh`, `run.bat`              | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する     |
+| `scripts/build_release.ts`       | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする         |
+| `.github/workflows/release.yml`  | タグから各OS向け配布ファイルとGitHub Releaseを作る              |
+| `package.json`, `vite.config.ts` | React画面のVite開発サーバーと `dist/` ビルドを設定する          |
+| `index.html`                     | ViteのHTMLエントリーとAPIトークンの埋め込み先                   |
+| `server.ts`                      | Vite自動検出から既存のDeno Desktopバックエンドを起動する        |
+| `desktop/app.ts`                 | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理 |
+| `desktop/app_paths.ts`           | ソース版・配布版の作業フォルダとテンプレートを解決する          |
+| `desktop/command_resolver.ts`    | Deno、Codex、Claude Codeの実行ファイルをユーザー環境から探す    |
+| `desktop/ui.tsx`, `desktop/ui/`  | Reactの起動処理、画面コンポーネント、状態管理用hooks            |
+| `desktop/version_manager.ts`     | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
+| `desktop/chat_history.ts`        | チャット履歴の検証と原子的な保存                                |
+| `desktop/http_security.ts`       | ループバック・同一オリジン・APIトークンの検証                   |
+| `desktop/static_assets.ts`       | `dist/` 内の安全なパスとContent-Typeを検証                      |
+| `desktop/terminal_text.ts`       | 端末出力からANSI制御シーケンスを除去                            |
+| `desktop/window_geometry.ts`     | 利用可能な画面領域とウィンドウサイズの検証                      |
+| `template/main.ts`               | 新しいAIの初期コードと囲みマスクライアントの設定                |
+| `website/`                       | GitHub Pagesで公開する、アプリとは独立した静的サイト            |
 
 ## 起動フロー
 
 1. ソース版では、`run.sh` または `run.bat` がDenoの存在を確認します。
 2. `.env` がある場合だけ `--env-file=.env` をDenoへ渡します。
-3. `deno task desktop:*` がDeno Desktopアプリをビルドします。配布版では、この処理をGitHub
-   Actionsで済ませます。先に `desktop/ui.tsx` を `desktop/ui.bundle.js` へバンドルします。
-   `deno.json` の `desktop.backend: "cef"` により、各OS向けChromiumもアプリへ同梱します。
-4. `desktop/app.ts` が作業フォルダを検出します。配布版では同梱テンプレートを
+3. Viteがルートの `index.html` と `desktop/ui.tsx` から `dist/` を作ります。
+4. `deno desktop .` がViteと `server.ts` を自動検出し、`dist/` と既存バックエンドを同梱します。
+   `deno.json` の `compile` に追加ファイルを定義し、起動タスクで親アプリの権限を指定します。
+   `desktop.backend: "cef"` により各OS向けChromiumもアプリへ同梱します。
+5. `desktop/app.ts` が作業フォルダを検出します。配布版では同梱テンプレートを
    `~/.kakomimasu-ai-starter/workspace/` へコピーします。
-5. `versions/` がまだ存在しないfresh cloneでは、`template/main.ts` から最初の版を作ります。
-6. BrowserWindowと `127.0.0.1` のHTTPサーバーを起動します。
-7. 画面の読み込み時に利用可能な表示領域を取得し、メインウィンドウをその大きさへ広げます。
+6. `versions/` がまだ存在しないfresh cloneでは、`template/main.ts` から最初の版を作ります。
+7. BrowserWindowと `127.0.0.1` のHTTPサーバーを起動します。
+8. 画面の読み込み時に利用可能な表示領域を取得し、メインウィンドウをその大きさへ広げます。
 
 `versions/` が既に存在して空の場合は、利用者が全版を削除した状態として扱い、最初の版を復元しません。
 
 ## 画面とローカルAPI
 
-`desktop/ui_state.js` は `/api/bindings/<name>` をPOSTで呼び出します。Reactで描画する画面と Monaco
-Editorは `prefers-color-scheme` を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの
-`window.bind` とHTTP経由の両方で同じハンドラーを公開します。
+`desktop/ui/api.ts` はDeno Desktopの `bindings` を優先して呼び出し、通常のブラウザでは
+`/api/bindings/<name>` へのPOSTへフォールバックします。画面状態は `desktop/ui/hooks/` のReact
+hooksが用途別に管理します。Reactで描画する画面と Monaco Editorは `prefers-color-scheme`
+を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの `window.bind`
+とHTTP経由の両方で同じハンドラーを公開します。
+
+`use-kakomi-app.ts`
+は画面へ渡す値を組み立て、ダッシュボード、チャット、ソースエディター、対戦、ログ取得、
+ペイン幅の各hookへ処理を委譲します。各コンポーネントは状態を直接変更せず、hookが公開する更新関数を
+呼び出します。
 
 HTTP経由では次をすべて満たす必要があります。
 
