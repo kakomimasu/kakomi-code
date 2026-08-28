@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #30383d;
+  --color-accent: #eb7c2d;
+  --color-accent-dark: #b8531c;
+  --color-accent-soft: #fff0dc;
+  --color-accent-line: #e8b17f;
+  --color-cream: #fff4e3;
+  --color-paper: #fffdfa;
+  --color-line: #d9dedc;
+  --color-soft-gray: #f1f3f2;
+  --color-muted: #5d676d;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+@utility page-gutter {
+  padding-inline: max(24px, calc((100vw - 1180px) / 2));
+}
+
+@utility hero-background {
+  background:
+    radial-gradient(circle at 79% 45%, var(--color-accent-soft) 0 18%, transparent 52%),
+    var(--color-paper);
+}
+
+@layer base {
+  a:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 4px;
+  }
+}

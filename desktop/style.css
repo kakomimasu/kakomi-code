@@ -16,7 +16,7 @@
   box-sizing: border-box;
 }
 
-[x-cloak] {
+[hidden] {
   display: none !important;
 }
 

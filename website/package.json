@@ -1,0 +1,19 @@
+{
+  "name": "kakomi-code-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cross-env ASTRO_TELEMETRY_DISABLED=1 astro dev",
+    "build": "cross-env ASTRO_TELEMETRY_DISABLED=1 astro build",
+    "check": "cross-env ASTRO_TELEMETRY_DISABLED=1 astro check",
+    "preview": "cross-env ASTRO_TELEMETRY_DISABLED=1 astro preview"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.2.9",
+    "cross-env": "^10.1.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3"
+  }
+}

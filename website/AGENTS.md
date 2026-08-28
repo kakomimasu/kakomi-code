@@ -1,10 +1,11 @@
 # Website instructions
 
-このディレクトリは、GitHub Pagesへそのまま配置する静的な紹介サイトです。
+このディレクトリは、Astroで構築してGitHub Pagesへ配置する静的な紹介サイトです。
 
 ## 実装ルール
 
-- ビルド工程やJavaScriptフレームワークを追加せず、HTML、CSS、必要最小限のJavaScriptで実装する。
+- ページはAstroコンポーネントへ分割し、クライアントJavaScriptは必要最小限にする。
+- スタイルはTailwind CSSのユーティリティクラスを優先する。
 - 既存の日本語のトーン、グレー基調のヘッダーとフッター、囲みコードのブランド表現を維持する。
 - モバイル幅でも横スクロール、文字切れ、操作不能が起きないようにする。
 - 画像には内容が分かる `alt` を設定し、装飾だけの画像は空の `alt` を使う。
@@ -14,5 +15,7 @@
 
 ## 検証
 
-- `deno fmt --check website/AGENTS.md website/index.html website/style.css`
+- `deno task website:build`
+- `deno task website:check`
+- `deno fmt --check website/AGENTS.md website/astro.config.mjs website/package.json website/src`
 - レイアウト変更時はデスクトップ幅とモバイル幅の両方をブラウザで確認する。

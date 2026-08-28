@@ -19,6 +19,13 @@ cd kakomi-code
 
 接続先などを変更する場合だけ `.env` を作成してください。認証トークンをコミットしないでください。
 
+依存関係を準備してReact画面だけをブラウザで確認する場合は、Viteの開発サーバーを起動できます。
+
+```sh
+deno install
+deno task ui:dev
+```
+
 ## 起動
 
 macOS / Linux:
@@ -31,6 +38,15 @@ Windows:
 
 ```bat
 run.bat
+```
+
+Deno DesktopのVite自動検出を直接確認する場合は、次のコマンドを実行します。Viteビルドと既存の
+バックエンドをまとめてデスクトップアプリにします。囲みコードの全機能を使うにはファイルや子プロセスなどの
+権限も必要なため、実際の起動には必要な権限、OSに合うアイコン、出力形式を指定する上記のスクリプトを
+使ってください。
+
+```sh
+deno desktop .
 ```
 
 ## 検証
@@ -47,6 +63,7 @@ deno task verify
 deno task fmt:check
 deno task lint
 deno task check
+deno task ui:build
 deno task test
 ```
 
@@ -55,14 +72,14 @@ deno task test
 
 ## 変更別の確認
 
-| 変更               | 追加の確認                                         |
-| ------------------ | -------------------------------------------------- |
-| `desktop/`         | 関連するDenoテストと型チェック                     |
-| `run.sh`           | `bash -n run.sh` と `test/run_script_test.ts`      |
-| `run.bat`          | Windowsでの起動確認                                |
-| `template/main.ts` | `deno check template/main.ts` と初期AIの動作       |
-| `website/`         | デスクトップ幅・モバイル幅、リンク、キーボード操作 |
-| セキュリティ境界   | 回帰テスト、`SECURITY.md`、`docs/architecture.md`  |
+| 変更               | 追加の確認                                           |
+| ------------------ | ---------------------------------------------------- |
+| `desktop/`         | `deno task ui:build`、関連するDenoテストと型チェック |
+| `run.sh`           | `bash -n run.sh` と `test/run_script_test.ts`        |
+| `run.bat`          | Windowsでの起動確認                                  |
+| `template/main.ts` | `deno check template/main.ts` と初期AIの動作         |
+| `website/`         | デスクトップ幅・モバイル幅、リンク、キーボード操作   |
+| セキュリティ境界   | 回帰テスト、`SECURITY.md`、`docs/architecture.md`    |
 
 ## リリース
 

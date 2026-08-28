@@ -1,0 +1,76 @@
+---
+import CopyCommand from "./CopyCommand.astro";
+
+const steps = [
+  {
+    title: "Deno をインストール",
+    href: "https://docs.deno.com/runtime/getting_started/installation/",
+    description: "はじめての方も、公式の案内に沿って準備できます。",
+  },
+  {
+    title: "囲みコードをダウンロード",
+    href: "https://github.com/kakomimasu/kakomi-code/releases/latest",
+    description:
+      "OSに合うアプリをReleasesから取得します。ソースコードから起動する場合は、次のコマンドでリポジトリを取得します。",
+  },
+  { title: "囲みコードを起動" },
+  {
+    title: "チャットで作戦を入力",
+    description: "「ランダムに配置して、ランダムに移動する作戦にしよう」と送ってみましょう。",
+  },
+  {
+    title: "「対戦を始める」をクリック",
+    description: "作成したエージェントで、さっそく対戦を始められます。",
+  },
+];
+---
+
+<section
+  class="page-gutter grid grid-cols-[.8fr_1.2fr] gap-[70px] bg-[linear-gradient(180deg,var(--color-paper)_0%,#fff9f5_100%)] py-[100px] max-[760px]:grid-cols-1 max-[760px]:gap-12 max-[760px]:py-[68px]"
+  id="start"
+  aria-labelledby="start-title"
+>
+  <div>
+    <h2
+      id="start-title"
+      class="m-0 text-[clamp(37px,4vw,42px)] leading-[1.14] font-[750] tracking-[-.055em]"
+    >はじめかた</h2>
+  </div>
+  <ol class="m-0 min-w-0 list-none p-0">
+    {
+      steps.map((step, index) => (
+        <li class="mb-[22px] grid grid-cols-[42px_minmax(0,1fr)] gap-[15px] border-b border-line pb-[22px]">
+          <span class="grid size-8 place-items-center rounded-full bg-accent-dark font-extrabold text-white">
+            {index + 1}
+          </span>
+          <div class="min-w-0">
+            <h3 class="mt-0.5 mb-[5px] text-[19px] font-bold">
+              {step.href ? (
+                <a class="transition-colors duration-180 hover:text-accent-dark" href={step.href}>
+                  {step.title}
+                </a>
+              ) : (
+                step.title
+              )}
+            </h3>
+            {step.description && <p class="m-0 text-sm text-muted">{step.description}</p>}
+            {index === 1 && <CopyCommand />}
+            {index === 2 && (
+              <p class="m-0 text-sm text-muted">
+                ダウンロードしたアプリを開きます。ソース版は、macOS / Linux では{" "}
+                <code class="relative top-px rounded-sm bg-cream px-1.5 py-0.5 font-mono leading-[1.35] text-accent-dark">
+                  run.sh
+                </code>
+                、Windows では{" "}
+                <code class="relative top-px rounded-sm bg-cream px-1.5 py-0.5 font-mono leading-[1.35] text-accent-dark">
+                  run.bat
+                </code>
+                {" "}を実行します。
+              </p>
+            )}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</section>

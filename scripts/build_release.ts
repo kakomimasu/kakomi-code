@@ -60,21 +60,7 @@ const args = [
   "--allow-env",
   "--allow-net",
   "--allow-run",
-  "--include",
-  "desktop/index.html",
-  "--include",
-  "desktop/style.css",
-  "--include",
-  "desktop/ui.js",
-  "--include",
-  "desktop/alpine.js",
-  "--include",
-  "desktop/assets",
-  "--include",
-  "template",
-  "--include",
-  "node_modules/monaco-editor/min",
-  "desktop/app.ts",
+  ".",
 ];
 
 try {

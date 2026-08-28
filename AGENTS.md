@@ -23,6 +23,8 @@
 - 型チェック: `deno task check`
 - lint: `deno task lint`
 - フォーマット確認: `deno task fmt:check`
+- React画面のViteビルド: `deno task ui:build`
+- React画面のVite開発サーバー: `deno task ui:dev`
 - アプリ起動: macOS / Linuxは `./run.sh`、Windowsは `run.bat`
 - 配布ビルド: `deno task release:build --target <target> --output <file>`
 
@@ -40,7 +42,8 @@
 - 外部プロセスの出力は上限を設け、メモリへ無制限に保持しない。
 - `run.sh` はmacOS標準の古いBashでも動作させる。空配列の展開など、`set -u`
   と衝突する書き方を避ける。
-- `desktop/alpine.js` は同梱済み依存物のため、依存更新以外では編集しない。
+- `dist/` はViteで作るReact画面の生成物でGit管理しない。`index.html`、`desktop/ui.tsx`、 または
+  `desktop/ui/` を変更し、`deno task ui:build` で生成する。
 - 配布版は同梱した `template/main.ts`
   をユーザー領域へ展開し、インストール先へ利用者データを書かない。
 - Releaseワークフローでは、Denoのバージョンと対応OS・アーキテクチャを明示する。
