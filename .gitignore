@@ -7,5 +7,7 @@
 /app
 /app.exe
 /dist/
+/website/.astro/
+/website/dist/
 node_modules/
 versions/*
