@@ -17,12 +17,12 @@ export function useMatch(
   }
 
   async function startMatch() {
-    const current = store.read();
+    const current = store.getState();
     if (!current.selected || current.busy) return;
     const selectedVersion = current.dashboard.versions.find((version) =>
       version.path === current.selected
     );
-    store.update({
+    store.setState({
       matchVersion: current.selected,
       busy: true,
       matchStatus: "参加しています…",
@@ -39,8 +39,8 @@ export function useMatch(
         board: current.board,
         versionDir: current.selected,
       }]);
-      const active = store.read();
-      store.update({
+      const active = store.getState();
+      store.setState({
         matchStatus: result.message,
         viewerUrl: result.viewerUrl,
         viewerStates: saveViewerState(
@@ -52,20 +52,20 @@ export function useMatch(
         matchRunning: true,
       });
     } catch (error) {
-      store.update({ matchStatus: `エラー: ${errorMessage(error)}` });
+      store.setState({ matchStatus: `エラー: ${errorMessage(error)}` });
     } finally {
-      store.update({ busy: false });
+      store.setState({ busy: false });
       scrollLogs();
     }
   }
 
   function openViewer() {
-    const current = store.read();
+    const current = store.getState();
     if (!isTrustedViewerUrl(current.viewerUrl)) {
-      store.update({ matchStatus: "エラー: 対戦画面のURLを確認できませんでした。" });
+      store.setState({ matchStatus: "エラー: 対戦画面のURLを確認できませんでした。" });
       return;
     }
-    store.update({
+    store.setState({
       viewerLoading: true,
       viewerOpen: true,
       viewerStates: saveViewerState(
@@ -78,8 +78,8 @@ export function useMatch(
   }
 
   function closeViewer() {
-    const current = store.read();
-    store.update({
+    const current = store.getState();
+    store.setState({
       viewerOpen: false,
       viewerLoading: false,
       viewerStates: saveViewerState(
@@ -97,8 +97,8 @@ export function useMatch(
     openViewer,
     closeViewer,
     scrollLogs,
-    setAi: (ai: string) => store.update({ ai }),
-    setBoard: (board: string) => store.update({ board }),
-    setViewerLoading: (viewerLoading: boolean) => store.update({ viewerLoading }),
+    setAi: (ai: string) => store.setState({ ai }),
+    setBoard: (board: string) => store.setState({ board }),
+    setViewerLoading: (viewerLoading: boolean) => store.setState({ viewerLoading }),
   };
 }

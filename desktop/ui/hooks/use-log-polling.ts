@@ -20,7 +20,7 @@ export function useLogPolling(
         callDesktop<MatchState>("getMatchLogs"),
         callDesktop<CodingAgentState>("getCodingAgentLogs"),
       ]);
-      const current = store.read();
+      const current = store.getState();
       let viewerStates = current.viewerStates;
       let viewerUrl = current.viewerUrl;
       if (matchState.viewerUrl) {
@@ -44,7 +44,7 @@ export function useLogPolling(
       );
       const sourceChanged = [...completedIds].some((id) => !completedIdsRef.current.has(id));
       completedIdsRef.current = completedIds;
-      store.update({
+      store.setState({
         matchLogs: matchState.logs,
         matchRunning: matchState.running,
         viewerStates,

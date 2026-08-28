@@ -13,7 +13,7 @@ import { usePaneResize } from "./use-pane-resize.ts";
 import { useSourceEditor } from "./use-source-editor.ts";
 
 export function useKakomiApp(): KakomiApp {
-  const store = useAppState();
+  const { state, store } = useAppState();
   const darkMode = useColorScheme();
   const paneResize = usePaneResize();
   const chatFeedRef = useRef<HTMLDivElement>(null);
@@ -53,7 +53,7 @@ export function useKakomiApp(): KakomiApp {
         await pollLogs();
         if (!cancelled) timer = setInterval(() => void pollLogs(), 1000);
       } catch (error) {
-        if (!cancelled) store.update({ status: `エラー: ${errorMessage(error)}` });
+        if (!cancelled) store.setState({ status: `エラー: ${errorMessage(error)}` });
       }
     })();
     return () => {
@@ -67,7 +67,6 @@ export function useKakomiApp(): KakomiApp {
     if (tab === "match") match.scrollLogs();
   }
 
-  const state = store.state;
   const messages = state.selected ? state.messagesByVersion[state.selected] || [] : [];
   const finalMessage = state.codingAgentResult?.versionDir === state.selected
     ? { role: "assistant" as const, text: state.codingAgentResult.text }

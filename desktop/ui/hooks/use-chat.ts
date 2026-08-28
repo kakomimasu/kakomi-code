@@ -16,12 +16,12 @@ export function useChat(
   }).current;
 
   function currentMessages() {
-    const current = store.read();
+    const current = store.getState();
     return current.selected ? current.messagesByVersion[current.selected] || [] : [];
   }
 
   function historyPayload() {
-    const current = store.read();
+    const current = store.getState();
     return Object.fromEntries(
       current.dashboard.versions.map((version) => [
         version.name,
@@ -41,8 +41,8 @@ export function useChat(
 
   async function loadHistory() {
     const history = await callDesktop<Record<string, Message[]>>("getChatHistory");
-    const current = store.read();
-    store.update({
+    const current = store.getState();
+    store.setState({
       messagesByVersion: Object.fromEntries(
         current.dashboard.versions.map((version) => [
           version.path,
@@ -62,19 +62,19 @@ export function useChat(
   }
 
   async function clear() {
-    const current = store.read();
+    const current = store.getState();
     if (!current.selected || current.busy || currentMessages().length === 0) return;
     if (!confirm("このエージェントのチャット履歴をすべて削除しますか？")) return;
-    store.update({ messagesByVersion: { ...current.messagesByVersion, [current.selected]: [] } });
+    store.setState({ messagesByVersion: { ...current.messagesByVersion, [current.selected]: [] } });
     const saved = await persistHistory();
-    store.update({
+    store.setState({
       status: saved ? "チャット履歴をクリアしました。" : "チャット履歴を保存できませんでした。",
     });
     scroll(true);
   }
 
   async function improve() {
-    const current = store.read();
+    const current = store.getState();
     const idea = current.idea.trim();
     if (!idea || !current.selected || current.busy) return;
     const versionDir = current.selected;
@@ -82,9 +82,9 @@ export function useChat(
       ...(current.messagesByVersion[versionDir] || []),
       { role: "user", text: idea },
     ];
-    store.update({ messagesByVersion: { ...current.messagesByVersion, [versionDir]: messages } });
+    store.setState({ messagesByVersion: { ...current.messagesByVersion, [versionDir]: messages } });
     await persistHistory();
-    store.update({
+    store.setState({
       idea: "",
       busy: true,
       codingAgentRunning: true,
@@ -93,7 +93,7 @@ export function useChat(
     });
     scroll(true);
     try {
-      const active = store.read();
+      const active = store.getState();
       const result = await callDesktop<{ output: string; cancelled?: boolean }>(
         "improveWithAgent",
         [{ idea, versionDir, agent: active.agent, model: active.models[active.agent] || "" }],
@@ -102,15 +102,15 @@ export function useChat(
         ...messages,
         { role: "assistant", text: result.output },
       ];
-      store.update({
+      store.setState({
         messagesByVersion: {
-          ...store.read().messagesByVersion,
+          ...store.getState().messagesByVersion,
           [versionDir]: completedMessages,
         },
         codingAgentResult: { versionDir, text: result.output },
       });
       const saved = await persistHistory();
-      store.update({
+      store.setState({
         status: result.cancelled
           ? saved ? "改善を停止しました。" : "改善を停止しましたが、履歴を保存できませんでした。"
           : saved
@@ -119,37 +119,37 @@ export function useChat(
       });
     } catch (error) {
       const message = `エラー: ${errorMessage(error)}`;
-      store.update({
+      store.setState({
         messagesByVersion: {
-          ...store.read().messagesByVersion,
+          ...store.getState().messagesByVersion,
           [versionDir]: [...messages, { role: "assistant", text: message }],
         },
         codingAgentResult: { versionDir, text: message },
       });
       const saved = await persistHistory();
-      store.update({
+      store.setState({
         status: message + (saved ? "" : "（チャット履歴も保存できませんでした）"),
       });
     } finally {
       await source.loadSource(versionDir);
-      store.update({ busy: false, codingAgentRunning: false });
+      store.setState({ busy: false, codingAgentRunning: false });
       scroll();
     }
   }
 
   async function cancelImprove() {
-    const current = store.read();
+    const current = store.getState();
     if (!current.codingAgentRunning || current.stopping) return;
-    store.update({ stopping: true, status: "コーディングAIの停止を要求しています…" });
+    store.setState({ stopping: true, status: "コーディングAIの停止を要求しています…" });
     try {
       const result = await callDesktop<{ message: string }>("stopCodingAgent");
-      if (store.read().codingAgentRunning) store.update({ status: result.message });
+      if (store.getState().codingAgentRunning) store.setState({ status: result.message });
     } catch (error) {
-      if (store.read().codingAgentRunning) {
-        store.update({ status: `エラー: ${errorMessage(error)}` });
+      if (store.getState().codingAgentRunning) {
+        store.setState({ status: `エラー: ${errorMessage(error)}` });
       }
     } finally {
-      store.update({ stopping: false });
+      store.setState({ stopping: false });
     }
   }
 
@@ -196,20 +196,20 @@ export function useChat(
     },
     clearCompositionGuard: () => flags.compositionGuardUntil = 0,
     sendOnEnter,
-    setIdea: (idea: string) => store.update({ idea }),
+    setIdea: (idea: string) => store.setState({ idea }),
     selectAgent(agent: CodingAgent) {
-      store.update({ agent });
+      store.setState({ agent });
       saveAgentPreference(agent);
     },
     setModel(model: string) {
-      store.update((current) => ({ models: { ...current.models, [current.agent]: model } }));
+      store.setState((current) => ({ models: { ...current.models, [current.agent]: model } }));
     },
     saveModel() {
-      const current = store.read();
+      const current = store.getState();
       const value = (current.models[current.agent] || "").trim();
       const model = value && !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value) ? "" : value;
       const models = { ...current.models, [current.agent]: model };
-      store.update({ models });
+      store.setState({ models });
       saveModelPreferences(models);
     },
   };

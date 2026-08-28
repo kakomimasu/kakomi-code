@@ -16,6 +16,7 @@ Deno.test("画面はViteでReactをバンドルして起動する", async () => 
 
   assertStringIncludes(packageConfig.dependencies.react, "19.2");
   assertStringIncludes(packageConfig.dependencies["react-dom"], "19.2");
+  assertStringIncludes(packageConfig.dependencies.zustand, "5.0");
   assertStringIncludes(packageConfig.devDependencies.vite, "8.2");
   assertEquals(packageConfig.scripts.build, "vite build");
   assertEquals(config.tasks["ui:build"], "deno task build");
@@ -33,6 +34,10 @@ Deno.test("画面はViteでReactをバンドルして起動する", async () => 
   assertStringIncludes(appHook, "useDashboard(");
   assertStringIncludes(appHook, "useChat(");
   assertStringIncludes(appHook, "useMatch(");
+  assertStringIncludes(
+    await Deno.readTextFile("desktop/ui/hooks/use-app-state.ts"),
+    'from "zustand/vanilla"',
+  );
   await assertRejects(() => Deno.stat("desktop/ui_state.js"), Deno.errors.NotFound);
   assertFalse(html.includes("alpine"));
   assertFalse(html.includes("x-data"));

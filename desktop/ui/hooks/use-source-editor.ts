@@ -14,51 +14,51 @@ export function useSourceEditor(
   const editor = useMonacoEditor({
     containerRef: sourceEditorRef,
     darkMode,
-    onChange: (source) => store.update({ source }),
+    onChange: (source) => store.setState({ source }),
     onSave: () => void saveSource(),
   });
 
-  async function loadSource(versionPath = store.read().selected) {
+  async function loadSource(versionPath = store.getState().selected) {
     if (!versionPath) {
-      store.update({ source: "", sourceStatus: "" });
+      store.setState({ source: "", sourceStatus: "" });
       await editor.ready();
       editor.setValue("");
       return;
     }
-    store.update({ sourceStatus: "読み込み中…" });
+    store.setState({ sourceStatus: "読み込み中…" });
     try {
       const source = await callDesktop<string>("getSource", [versionPath]);
-      if (store.read().selected !== versionPath) return;
-      store.update({ source });
+      if (store.getState().selected !== versionPath) return;
+      store.setState({ source });
       await editor.ready();
-      if (store.read().selected !== versionPath) return;
+      if (store.getState().selected !== versionPath) return;
       editor.setValue(source);
       editor.layout();
-      store.update({ sourceStatus: "" });
+      store.setState({ sourceStatus: "" });
     } catch (error) {
-      if (store.read().selected === versionPath) {
-        store.update({ sourceStatus: `エラー: ${errorMessage(error)}` });
+      if (store.getState().selected === versionPath) {
+        store.setState({ sourceStatus: `エラー: ${errorMessage(error)}` });
       }
     }
   }
 
   async function saveSource() {
-    const current = store.read();
+    const current = store.getState();
     if (!current.selected || current.busy) return;
-    store.update({ busy: true, sourceStatus: "保存しています…" });
+    store.setState({ busy: true, sourceStatus: "保存しています…" });
     try {
       await editor.ready();
       const source = editor.getValue();
-      store.update({ source });
+      store.setState({ source });
       const result = await callDesktop<{ message: string }>("saveSource", [
-        store.read().selected,
+        store.getState().selected,
         source,
       ]);
-      store.update({ sourceStatus: result.message });
+      store.setState({ sourceStatus: result.message });
     } catch (error) {
-      store.update({ sourceStatus: `エラー: ${errorMessage(error)}` });
+      store.setState({ sourceStatus: `エラー: ${errorMessage(error)}` });
     } finally {
-      store.update({ busy: false });
+      store.setState({ busy: false });
     }
   }
 
@@ -72,7 +72,7 @@ export function useSourceEditor(
       do {
         reloadPendingRef.current = false;
         await loadSource(versionPath);
-      } while (reloadPendingRef.current && store.read().selected === versionPath);
+      } while (reloadPendingRef.current && store.getState().selected === versionPath);
     } finally {
       reloadingRef.current = false;
     }

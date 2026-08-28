@@ -66,10 +66,10 @@ flowchart LR
 ## 画面とローカルAPI
 
 `desktop/ui/api.ts` はDeno Desktopの `bindings` を優先して呼び出し、通常のブラウザでは
-`/api/bindings/<name>` へのPOSTへフォールバックします。画面状態は `desktop/ui/hooks/` のReact
-hooksが用途別に管理します。Reactで描画する画面と Monaco Editorは `prefers-color-scheme`
-を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの `window.bind`
-とHTTP経由の両方で同じハンドラーを公開します。
+`/api/bindings/<name>` へのPOSTへフォールバックします。共有する画面状態はZustandストアで管理し、
+`desktop/ui/hooks/` のReact hooksが用途別の操作と副作用を担当します。Reactで描画する画面と Monaco
+Editorは `prefers-color-scheme` を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの
+`window.bind` とHTTP経由の両方で同じハンドラーを公開します。
 
 `use-kakomi-app.ts`
 は画面へ渡す値を組み立て、ダッシュボード、チャット、ソースエディター、対戦、ログ取得、

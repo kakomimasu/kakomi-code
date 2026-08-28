@@ -18,7 +18,7 @@ type ChatActions = {
 export function useDashboard(store: AppStore, source: SourceActions, chat: ChatActions) {
   async function refresh(preferred = "") {
     const dashboard = await callDesktop<Dashboard>("getDashboard");
-    const current = store.read();
+    const current = store.getState();
     if (preferred || !dashboard.versions.some((version) => version.path === current.selected)) {
       const selected = preferred || dashboard.versions[0]?.path || "";
       if (selected !== current.selected) {
@@ -29,7 +29,7 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
           current.viewerOpen,
         );
         const viewer = loadViewerState(viewerStates, selected);
-        store.update({
+        store.setState({
           dashboard,
           selected,
           viewerStates,
@@ -40,11 +40,11 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
         return;
       }
     }
-    store.update({ dashboard });
+    store.setState({ dashboard });
   }
 
   async function selectVersion(path: string) {
-    const current = store.read();
+    const current = store.getState();
     if (path === current.selected) return;
     const viewerStates = saveViewerState(
       current.viewerStates,
@@ -53,7 +53,7 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
       current.viewerOpen,
     );
     const viewer = loadViewerState(viewerStates, path);
-    store.update({
+    store.setState({
       selected: path,
       viewerStates,
       viewerUrl: viewer.url,
@@ -69,7 +69,7 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
   }
 
   async function selectTab(tab: UtilityTab) {
-    store.update({ tab });
+    store.setState({ tab });
     if (tab === "source") {
       await source.loadSource();
       void nextFrame(source.layout);
@@ -77,7 +77,7 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
   }
 
   async function createVersion(sourceVersion?: string) {
-    const current = store.read();
+    const current = store.getState();
     const sourceVersionItem = current.dashboard.versions.find((version) =>
       version.path === sourceVersion
     );
@@ -86,7 +86,7 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
       sourceVersionItem ? displayVersionName(sourceVersionItem.name) : "",
     );
     if (!name?.trim()) return;
-    store.update({ busy: true, status: "コピー中…" });
+    store.setState({ busy: true, status: "コピー中…" });
     try {
       const result = await callDesktop<{ version: Version }>("createVersion", [{
         agentName: name.trim(),
@@ -94,11 +94,11 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
       }]);
       await refresh(result.version.path);
       await source.loadSource(result.version.path);
-      store.update({ status: `${displayVersionName(result.version.name)} を作成しました。` });
+      store.setState({ status: `${displayVersionName(result.version.name)} を作成しました。` });
     } catch (error) {
-      store.update({ status: `エラー: ${errorMessage(error)}` });
+      store.setState({ status: `エラー: ${errorMessage(error)}` });
     } finally {
-      store.update({ busy: false });
+      store.setState({ busy: false });
     }
   }
 
@@ -106,23 +106,23 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
     const currentName = displayVersionName(version.name);
     const name = prompt("新しいAI名を入力してください", currentName);
     if (!name?.trim() || name.trim() === currentName) return;
-    store.update({ busy: true, status: "名前を変更しています…" });
+    store.setState({ busy: true, status: "名前を変更しています…" });
     try {
-      const previousMessages = store.read().messagesByVersion[version.path];
+      const previousMessages = store.getState().messagesByVersion[version.path];
       const result = await callDesktop<{ version: Version }>("renameVersion", [{
         versionDir: version.path,
         agentName: name.trim(),
       }]);
       if (previousMessages && result.version.path !== version.path) {
         const messagesByVersion = {
-          ...store.read().messagesByVersion,
+          ...store.getState().messagesByVersion,
           [result.version.path]: previousMessages,
         };
         delete messagesByVersion[version.path];
-        store.update({ messagesByVersion });
+        store.setState({ messagesByVersion });
       }
       await refresh(result.version.path);
-      const refreshed = store.read();
+      const refreshed = store.getState();
       if (result.version.path !== version.path && refreshed.viewerStates[version.path]) {
         const viewerStates = {
           ...refreshed.viewerStates,
@@ -130,7 +130,7 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
         };
         delete viewerStates[version.path];
         const viewer = loadViewerState(viewerStates, result.version.path);
-        store.update({
+        store.setState({
           viewerStates,
           viewerUrl: viewer.url,
           viewerOpen: viewer.open,
@@ -142,14 +142,14 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
       }
       await source.loadSource(result.version.path);
       const saved = await chat.persistHistory();
-      store.update({
+      store.setState({
         status: displayVersionName(result.version.name) +
           (saved ? " に変更しました。" : " に変更しましたが、チャット履歴を保存できませんでした。"),
       });
     } catch (error) {
-      store.update({ status: `エラー: ${errorMessage(error)}` });
+      store.setState({ status: `エラー: ${errorMessage(error)}` });
     } finally {
-      store.update({ busy: false });
+      store.setState({ busy: false });
     }
   }
 
@@ -158,21 +158,21 @@ export function useDashboard(store: AppStore, source: SourceActions, chat: ChatA
     if (!confirm(`${name}を削除しますか？`)) return;
     try {
       await callDesktop("deleteVersion", [version.path]);
-      const messagesByVersion = { ...store.read().messagesByVersion };
+      const messagesByVersion = { ...store.getState().messagesByVersion };
       delete messagesByVersion[version.path];
-      store.update({ messagesByVersion });
+      store.setState({ messagesByVersion });
       await refresh();
-      const viewerStates = { ...store.read().viewerStates };
+      const viewerStates = { ...store.getState().viewerStates };
       delete viewerStates[version.path];
-      store.update({ viewerStates });
+      store.setState({ viewerStates });
       await source.loadSource();
       const saved = await chat.persistHistory();
-      store.update({
+      store.setState({
         status: name +
           (saved ? " を削除しました。" : " を削除しましたが、チャット履歴を保存できませんでした。"),
       });
     } catch (error) {
-      store.update({ status: `エラー: ${errorMessage(error)}` });
+      store.setState({ status: `エラー: ${errorMessage(error)}` });
     }
   }
 

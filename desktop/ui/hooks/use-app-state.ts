@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
+import { useStore } from "zustand";
+import { createStore, type StoreApi } from "zustand/vanilla";
 import type {
   CodingAgent,
   CodingLogEntry,
@@ -41,11 +43,7 @@ export type AppState = {
   stopping: boolean;
 };
 
-export type AppStore = {
-  state: AppState;
-  read(): AppState;
-  update(patch: Partial<AppState> | ((state: AppState) => Partial<AppState>)): void;
-};
+export type AppStore = StoreApi<AppState>;
 
 function savedAgent(): CodingAgent {
   return localStorage.getItem(SAVED_AGENT_KEY) === "claude" ? "claude" : "codex";
@@ -99,21 +97,16 @@ function initialState(): AppState {
   };
 }
 
-export function useAppState(): AppStore {
-  const [state, setState] = useState<AppState>(initialState);
-  const stateRef = useRef(state);
+export function createAppStore(): AppStore {
+  return createStore<AppState>()(() => initialState());
+}
 
-  return {
-    state,
-    read: () => stateRef.current,
-    update(patch) {
-      const current = stateRef.current;
-      const changes = typeof patch === "function" ? patch(current) : patch;
-      const next = { ...current, ...changes };
-      stateRef.current = next;
-      setState(next);
-    },
-  };
+export function useAppState() {
+  const storeRef = useRef<AppStore | null>(null);
+  if (!storeRef.current) storeRef.current = createAppStore();
+  const store = storeRef.current;
+  const state = useStore(store);
+  return { state, store };
 }
 
 export function saveAgentPreference(agent: CodingAgent) {

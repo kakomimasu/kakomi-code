@@ -24,7 +24,8 @@
     "npm:monaco-editor@0.56": "0.56.0",
     "npm:react-dom@^19.2.8": "19.2.8_react@19.2.8",
     "npm:react@^19.2.8": "19.2.8",
-    "npm:vite@^8.2.2": "8.2.2"
+    "npm:vite@^8.2.2": "8.2.2",
+    "npm:zustand@^5.0.15": "5.0.15_@types+react@19.2.18_react@19.2.8"
   },
   "jsr": {
     "@kakomimasu/client-js@0.1.0": {
@@ -378,6 +379,17 @@
         "fsevents"
       ],
       "bin": true
+    },
+    "zustand@5.0.15_@types+react@19.2.18_react@19.2.8": {
+      "integrity": "sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A==",
+      "dependencies": [
+        "@types/react",
+        "react"
+      ],
+      "optionalPeers": [
+        "@types/react",
+        "react"
+      ]
     }
   },
   "remote": {
@@ -398,7 +410,8 @@
         "npm:monaco-editor@0.56",
         "npm:react-dom@^19.2.8",
         "npm:react@^19.2.8",
-        "npm:vite@^8.2.2"
+        "npm:vite@^8.2.2",
+        "npm:zustand@^5.0.15"
       ]
     }
   }
