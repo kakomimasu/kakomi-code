@@ -16,7 +16,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      DENO_DIR: ${{ runner.temp }}/deno-dir
+      DENO_DIR: .deno-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -27,7 +27,7 @@ jobs:
       - name: Cache Deno dependencies
         uses: actions/cache@v6
         with:
-          path: ${{ env.DENO_DIR }}
+          path: .deno-cache
           key: ${{ runner.os }}-${{ runner.arch }}-deno-v2-${{ hashFiles('deno.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-deno-v2-
