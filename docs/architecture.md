@@ -3,7 +3,7 @@
 ## 概要
 
 囲みコードは、Deno
-Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はHTML、CSS、JavaScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
+Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はReact、CSS、TypeScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
 / Claude Codeの起動を担当します。
 
 ```mermaid
@@ -33,7 +33,8 @@ flowchart LR
 | `desktop/app_paths.ts`          | ソース版・配布版の作業フォルダとテンプレートを解決する          |
 | `desktop/command_resolver.ts`   | Deno、Codex、Claude Codeの実行ファイルをユーザー環境から探す    |
 | `desktop/index.html`            | アプリ画面の構造とAPIトークンの埋め込み先                       |
-| `desktop/ui.js`                 | Alpine.jsの画面状態、ローカルAPI呼び出し、エディター操作        |
+| `desktop/ui.tsx`, `desktop/ui/` | Reactの起動処理と画面コンポーネント                             |
+| `desktop/ui_state.js`           | 画面状態、ローカルAPI呼び出し、エディター操作                   |
 | `desktop/version_manager.ts`    | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
 | `desktop/chat_history.ts`       | チャット履歴の検証と原子的な保存                                |
 | `desktop/http_security.ts`      | ループバック・同一オリジン・APIトークンの検証                   |
@@ -47,8 +48,8 @@ flowchart LR
 1. ソース版では、`run.sh` または `run.bat` がDenoの存在を確認します。
 2. `.env` がある場合だけ `--env-file=.env` をDenoへ渡します。
 3. `deno task desktop:*` がDeno Desktopアプリをビルドします。配布版では、この処理をGitHub
-   Actionsで済ませます。 `deno.json` の `desktop.backend: "cef"`
-   により、各OS向けChromiumもアプリへ同梱します。
+   Actionsで済ませます。先に `desktop/ui.tsx` を `desktop/ui.bundle.js` へバンドルします。
+   `deno.json` の `desktop.backend: "cef"` により、各OS向けChromiumもアプリへ同梱します。
 4. `desktop/app.ts` が作業フォルダを検出します。配布版では同梱テンプレートを
    `~/.kakomimasu-ai-starter/workspace/` へコピーします。
 5. `versions/` がまだ存在しないfresh cloneでは、`template/main.ts` から最初の版を作ります。
@@ -59,9 +60,9 @@ flowchart LR
 
 ## 画面とローカルAPI
 
-`desktop/ui.js` は `/api/bindings/<name>` をPOSTで呼び出します。Deno Desktopの `window.bind`
-とHTTP経由の両方で同じハンドラーを公開します。 画面とMonaco Editorは `prefers-color-scheme`
-を監視し、OSのライト・ダーク設定へ追従します。
+`desktop/ui_state.js` は `/api/bindings/<name>` をPOSTで呼び出します。Reactで描画する画面と Monaco
+Editorは `prefers-color-scheme` を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの
+`window.bind` とHTTP経由の両方で同じハンドラーを公開します。
 
 HTTP経由では次をすべて満たす必要があります。
 

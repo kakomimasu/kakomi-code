@@ -896,8 +896,7 @@ expose("improveWithAgent", async (value: unknown) => {
 
 const assets = new Map([
   ["/style.css", ["style.css", "text/css; charset=utf-8"]],
-  ["/ui.js", ["ui.js", "text/javascript; charset=utf-8"]],
-  ["/alpine.js", ["alpine.js", "text/javascript; charset=utf-8"]],
+  ["/ui.js", ["ui.bundle.js", "text/javascript; charset=utf-8"]],
   ["/assets/codex.webp", ["assets/codex.webp", "image/webp"]],
   ["/assets/claude.svg", ["assets/claude.svg", "image/svg+xml"]],
   ["/assets/app-icon.png", ["assets/app-icon.png", "image/png"]],

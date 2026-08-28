@@ -33,7 +33,7 @@ Deno.test("OSがダーク表示ならアプリもダークモードで初期化�
       configurable: true,
       value: () => ({ matches: true }),
     });
-    await import(`../desktop/ui.js?dark-mode-test=${crypto.randomUUID()}`);
+    await import(`../desktop/ui_state.js?dark-mode-test=${crypto.randomUUID()}`);
 
     const app = (globalThis as typeof globalThis & { kakomiApp: () => ViewerApp }).kakomiApp();
     assertEquals(app.darkMode, true);
@@ -58,7 +58,7 @@ Deno.test("対戦画面は信頼できるURLだけをチャット欄で開く", 
       configurable: true,
       value: { getItem: () => null, setItem: () => {} },
     });
-    await import(`../desktop/ui.js?viewer-test=${crypto.randomUUID()}`);
+    await import(`../desktop/ui_state.js?viewer-test=${crypto.randomUUID()}`);
 
     const app = (globalThis as typeof globalThis & { kakomiApp: () => ViewerApp }).kakomiApp();
     app.scrollChat = () => {};
@@ -95,7 +95,7 @@ Deno.test("エージェントへ戻ると開いていた対戦画面を復元す
       configurable: true,
       value: { getItem: () => null, setItem: () => {} },
     });
-    await import(`../desktop/ui.js?viewer-switch-test=${crypto.randomUUID()}`);
+    await import(`../desktop/ui_state.js?viewer-switch-test=${crypto.randomUUID()}`);
 
     const app = (globalThis as typeof globalThis & { kakomiApp: () => ViewerApp }).kakomiApp();
     app.scrollChat = () => {};

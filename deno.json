@@ -1,6 +1,6 @@
 {
   "nodeModulesDir": "auto",
-  "exclude": ["desktop/alpine.js"],
+  "exclude": ["desktop/ui.bundle.js"],
   "desktop": {
     "backend": "cef"
   },
@@ -9,18 +9,23 @@
     "@std/path": "jsr:@std/path@^1.0.0",
     "@kakomimasu/client-js": "jsr:@kakomimasu/client-js@^0.1.0",
     "@kakomimasu/client-deno": "https://raw.githubusercontent.com/kakomimasu/client-deno/main/KakomimasuClient.ts",
-    "monaco-editor": "npm:monaco-editor@^0.56.0"
+    "@types/react": "npm:@types/react@^19.2.18",
+    "@types/react-dom": "npm:@types/react-dom@^19.2.5",
+    "monaco-editor": "npm:monaco-editor@^0.56.0",
+    "react": "npm:react@^19.2.8",
+    "react-dom": "npm:react-dom@^19.2.8"
   },
   "tasks": {
-    "desktop": "deno desktop --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/assets --include template --include node_modules/monaco-editor/min desktop/app.ts",
-    "desktop:mac": "deno desktop --output Kakomimasu.app --icon desktop/assets/app-icon.icns --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/assets --include template --include node_modules/monaco-editor/min desktop/app.ts",
-    "desktop:windows": "deno desktop --icon desktop/assets/app-icon.ico --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.js --include desktop/alpine.js --include desktop/assets --include template --include node_modules/monaco-editor/min desktop/app.ts",
-    "release:build": "deno run --allow-read --allow-write --allow-run scripts/build_release.ts",
-    "check": "deno check desktop/app.ts desktop/version_manager.ts desktop/chat_history.ts desktop/http_security.ts desktop/terminal_text.ts desktop/window_geometry.ts scripts/build_release.ts",
+    "ui:build": "deno bundle --frozen --platform browser --format esm --minify --output desktop/ui.bundle.js desktop/ui.tsx",
+    "desktop": "deno task ui:build && deno desktop --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.bundle.js --include desktop/assets --include template --include node_modules/monaco-editor/min desktop/app.ts",
+    "desktop:mac": "deno task ui:build && deno desktop --output Kakomimasu.app --icon desktop/assets/app-icon.icns --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.bundle.js --include desktop/assets --include template --include node_modules/monaco-editor/min desktop/app.ts",
+    "desktop:windows": "deno task ui:build && deno desktop --icon desktop/assets/app-icon.ico --allow-read --allow-write --allow-env --allow-net --allow-run --include desktop/index.html --include desktop/style.css --include desktop/ui.bundle.js --include desktop/assets --include template --include node_modules/monaco-editor/min desktop/app.ts",
+    "release:build": "deno task ui:build && deno run --allow-read --allow-write --allow-run scripts/build_release.ts",
+    "check": "deno check desktop/app.ts desktop/ui.tsx desktop/ui_state.js desktop/version_manager.ts desktop/chat_history.ts desktop/http_security.ts desktop/terminal_text.ts desktop/window_geometry.ts scripts/build_release.ts",
     "test": "deno test --allow-env --allow-read --allow-write --allow-run=bash test",
-    "lint": "deno lint desktop/app.ts desktop/chat_history.ts desktop/http_security.ts desktop/terminal_text.ts desktop/ui.js desktop/version_manager.ts desktop/window_geometry.ts scripts template/main.ts test",
-    "fmt:check": "deno fmt --check AGENTS.md CONTRIBUTING.md README.md SECURITY.md deno.json desktop/app.ts desktop/chat_history.ts desktop/http_security.ts desktop/index.html desktop/style.css desktop/terminal_text.ts desktop/ui.js desktop/version_manager.ts desktop/window_geometry.ts docs scripts template test website/AGENTS.md website/index.html website/style.css",
-    "verify": "deno task fmt:check && deno task lint && deno task check && deno task test"
+    "lint": "deno lint desktop/app.ts desktop/chat_history.ts desktop/http_security.ts desktop/terminal_text.ts desktop/ui desktop/ui.tsx desktop/ui_state.js desktop/version_manager.ts desktop/window_geometry.ts scripts template/main.ts test",
+    "fmt:check": "deno fmt --check AGENTS.md CONTRIBUTING.md README.md SECURITY.md deno.json desktop/app.ts desktop/chat_history.ts desktop/http_security.ts desktop/index.html desktop/style.css desktop/terminal_text.ts desktop/ui desktop/ui.tsx desktop/ui_state.js desktop/version_manager.ts desktop/window_geometry.ts docs scripts template test website/AGENTS.md website/index.html website/style.css",
+    "verify": "deno task fmt:check && deno task lint && deno task check && deno task ui:build && deno task test"
   },
   "fmt": {
     "lineWidth": 100,
@@ -28,6 +33,7 @@
     "singleQuote": false
   },
   "compilerOptions": {
+    "jsx": "react-jsx",
     "lib": ["dom", "esnext", "deno.ns"]
   }
 }
