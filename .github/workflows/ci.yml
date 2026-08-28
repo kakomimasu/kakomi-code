@@ -15,6 +15,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      DENO_DIR: ${{ runner.temp }}/deno-dir
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -22,6 +24,21 @@ jobs:
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Cache Deno dependencies
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.DENO_DIR }}
+          key: ${{ runner.os }}-${{ runner.arch }}-deno-v2-${{ hashFiles('deno.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-deno-v2-
+      - name: Verify desktop
+        run: deno task verify:desktop
+
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -29,7 +46,11 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
       - name: Install website dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
         working-directory: website
-      - name: Verify
-        run: deno task verify
+      - name: Check website
+        run: npm run check
+        working-directory: website
+      - name: Build website
+        run: npm run build
+        working-directory: website
