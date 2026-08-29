@@ -20,7 +20,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
-if exist "app.exe" (
+if exist "Kakomimasu\Kakomimasu.bat" (
+  start "囲みコード" /D "%CD%\Kakomimasu" cmd /c Kakomimasu.bat
+) else if exist "app.exe" (
   start "囲みコード" "%CD%\app.exe"
 ) else (
   echo Desktopアプリが見つかりませんでした。

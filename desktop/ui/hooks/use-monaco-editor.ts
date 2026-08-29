@@ -14,9 +14,38 @@ type MonacoApi = {
     create(container: HTMLElement, options: Record<string, unknown>): Editor;
     setTheme(theme: string): void;
   };
+  languages: {
+    typescript: {
+      ModuleKind: { ESNext: number };
+      ModuleResolutionKind: { NodeJs: number };
+      ScriptTarget: { ESNext: number };
+      typescriptDefaults: {
+        addExtraLib(content: string, filePath?: string): { dispose(): void };
+        setCompilerOptions(options: {
+          allowNonTsExtensions: boolean;
+          module: number;
+          moduleResolution: number;
+          target: number;
+        }): void;
+        setDiagnosticsOptions(options: { diagnosticCodesToIgnore: number[] }): void;
+      };
+    };
+  };
   KeyCode: { KeyS: number };
   KeyMod: { CtrlCmd: number };
 };
+
+const DENO_EDITOR_TYPES = `
+declare namespace Deno {
+  namespace env {
+    function get(key: string): string | undefined;
+  }
+}
+
+interface ImportMeta {
+  readonly main: boolean;
+}
+`;
 
 type AmdRequire = {
   (modules: string[], ready: () => void, failed: () => void): void;
@@ -51,6 +80,7 @@ export function useMonacoEditor({
   onSave: () => void;
 }) {
   const editorRef = useRef<Editor | null>(null);
+  const denoTypesRef = useRef<{ dispose(): void } | null>(null);
   const readyRef = useRef<Deferred | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const onChangeRef = useRef(onChange);
@@ -79,6 +109,21 @@ export function useMonacoEditor({
           pending.reject(new Error("Monaco Editorの初期化に失敗しました。"));
           return;
         }
+        monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+          // Denoのimport mapはブラウザ内のMonacoでは解決できないため、
+          // モジュール未解決だけを除外し、その他の型・構文エラーは表示する。
+          diagnosticCodesToIgnore: [2307, 2792],
+        });
+        monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+          allowNonTsExtensions: true,
+          module: monaco.languages.typescript.ModuleKind.ESNext,
+          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          target: monaco.languages.typescript.ScriptTarget.ESNext,
+        });
+        denoTypesRef.current = monaco.languages.typescript.typescriptDefaults.addExtraLib(
+          DENO_EDITOR_TYPES,
+          "file:///deno-env.d.ts",
+        );
         const editor = monaco.editor.create(containerRef.current, {
           value: "",
           language: "typescript",
@@ -111,8 +156,10 @@ export function useMonacoEditor({
       disposed = true;
       resizeObserverRef.current?.disconnect();
       editorRef.current?.dispose();
+      denoTypesRef.current?.dispose();
       resizeObserverRef.current = null;
       editorRef.current = null;
+      denoTypesRef.current = null;
     };
   }, [containerRef]);
 

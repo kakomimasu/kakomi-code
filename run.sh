@@ -29,6 +29,8 @@ if [[ "${OSTYPE:-}" == darwin* ]] && [[ -d "Kakomimasu.app" ]]; then
       /usr/bin/plutil -insert "$KEY" -string "囲みコード" "$INFO_PLIST"
   done
   open "Kakomimasu.app"
+elif [[ -x "Kakomimasu/Kakomimasu" ]]; then
+  ./Kakomimasu/Kakomimasu >/dev/null 2>&1 &
 elif [[ -x "app" ]]; then
   ./app >/dev/null 2>&1 &
 else

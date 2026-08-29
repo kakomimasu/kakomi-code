@@ -12,8 +12,12 @@ async function runLauncher(hasEnvFile: boolean) {
       '#!/bin/sh\nprintf "DENO_ARGS"\nfor arg in "$@"; do printf " <%s>" "$arg"; done\nprintf "\\n"\n',
     );
     await Deno.chmod(join(binDir, "deno"), 0o755);
-    await Deno.writeTextFile(join(projectDir, "app"), "#!/bin/sh\nexit 0\n");
-    await Deno.chmod(join(projectDir, "app"), 0o755);
+    await Deno.mkdir(join(projectDir, "Kakomimasu"));
+    await Deno.writeTextFile(
+      join(projectDir, "Kakomimasu", "Kakomimasu"),
+      "#!/bin/sh\nexit 0\n",
+    );
+    await Deno.chmod(join(projectDir, "Kakomimasu", "Kakomimasu"), 0o755);
     if (hasEnvFile) await Deno.writeTextFile(join(projectDir, ".env"), "AI_NAME=test\n");
 
     const result = await new Deno.Command("bash", {
@@ -58,4 +62,12 @@ Deno.test({
     assertEquals(result.stderr, "");
     assertStringIncludes(result.stdout, `DENO_ARGS <task> <--env-file=.env> <${desktopTask}>`);
   },
+});
+
+Deno.test("デスクトップタスクは起動スクリプトと同じ出力名を使う", async () => {
+  const config = JSON.parse(await Deno.readTextFile("deno.json"));
+
+  for (const task of ["desktop", "desktop:mac", "desktop:windows"]) {
+    assertStringIncludes(config.tasks[task], "--output Kakomimasu");
+  }
 });

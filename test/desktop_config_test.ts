@@ -19,6 +19,7 @@ Deno.test("画面はViteでReactをバンドルして起動する", async () => 
   const appHook = await Deno.readTextFile("desktop/ui/hooks/use-kakomi-app.ts");
   const dashboardHook = await Deno.readTextFile("desktop/ui/hooks/use-dashboard.ts");
   const chatHook = await Deno.readTextFile("desktop/ui/hooks/use-chat.ts");
+  const monacoHook = await Deno.readTextFile("desktop/ui/hooks/use-monaco-editor.ts");
   const utilityPane = await Deno.readTextFile("desktop/ui/utility.tsx");
   const style = await Deno.readTextFile("desktop/style.css");
   const server = await Deno.readTextFile("server.ts");
@@ -47,6 +48,12 @@ Deno.test("画面はViteでReactをバンドルして起動する", async () => 
   assertStringIncludes(viteConfig, 'dedupe: ["react", "react-dom"]');
   assertStringIncludes(viteConfig, '"@base-ui/react/field"');
   assertStringIncludes(viteConfig, '"@base-ui/react/toggle-group"');
+  assertStringIncludes(monacoHook, "diagnosticCodesToIgnore: [2307, 2792]");
+  assertStringIncludes(monacoHook, "module: monaco.languages.typescript.ModuleKind.ESNext");
+  assertStringIncludes(monacoHook, "target: monaco.languages.typescript.ScriptTarget.ESNext");
+  assertStringIncludes(monacoHook, '"file:///deno-env.d.ts"');
+  assertStringIncludes(monacoHook, "function get(key: string): string | undefined");
+  assertStringIncludes(monacoHook, "readonly main: boolean");
   assertStringIncludes(server, 'import "./desktop/app.ts"');
   assertStringIncludes(html, '<div id="root"></div>');
   assertStringIncludes(html, '<script type="module" src="/desktop/ui.tsx"');
