@@ -8,7 +8,10 @@ import { type AppStore, saveAgentPreference, saveModelPreferences } from "./use-
 export function useChat(
   store: AppStore,
   chatFeedRef: RefObject<HTMLDivElement | null>,
-  source: { loadSource(versionPath?: string): Promise<void> },
+  source: {
+    loadSource(versionPath?: string): Promise<void>;
+    saveIfDirty(): Promise<boolean>;
+  },
   dialogs: DialogActions,
 ) {
   const flags = useRef({
@@ -85,6 +88,7 @@ export function useChat(
     const current = store.getState();
     const idea = current.idea.trim();
     if (!idea || !current.selected || current.busy) return;
+    if (!await source.saveIfDirty()) return;
     const versionDir = current.selected;
     const messages: Message[] = [
       ...(current.messagesByVersion[versionDir] || []),

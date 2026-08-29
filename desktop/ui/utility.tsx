@@ -137,10 +137,11 @@ function MatchPanel({ app }: AppProps) {
           type="button"
           size="lg"
           className="mt-4 w-full rounded-[10px]"
-          onClick={() => app.startMatch()}
-          disabled={controlsDisabled}
+          variant={app.matchRunning ? "subtleDanger" : "primary"}
+          onClick={() => app.matchRunning ? app.stopMatch() : app.startMatch()}
+          disabled={app.matchRunning ? app.matchStopping : controlsDisabled}
         >
-          対戦を始める
+          {app.matchRunning ? "対戦を停止" : "対戦を始める"}
         </Button>
         <StatusText>{app.matchStatus}</StatusText>
       </div>
@@ -170,7 +171,7 @@ function SourcePanel({ app }: AppProps) {
           onClick={() => app.saveSource()}
           disabled={app.busy}
         >
-          保存
+          {app.sourceDirty ? "保存 *" : "保存"}
         </Button>
       </div>
       <div

@@ -7,6 +7,7 @@ import type { AppStore } from "./use-app-state.ts";
 
 type SourceActions = {
   loadSource(versionPath?: string): Promise<void>;
+  saveIfDirty(): Promise<boolean>;
   clear(): void;
   layout(): void;
 };
@@ -52,6 +53,7 @@ export function useDashboard(
   async function selectVersion(path: string) {
     const current = store.getState();
     if (path === current.selected) return;
+    if (!await source.saveIfDirty()) return;
     const viewerStates = saveViewerState(
       current.viewerStates,
       current.selected,
@@ -66,6 +68,8 @@ export function useDashboard(
       viewerOpen: viewer.open,
       viewerLoading: viewer.open,
       source: "",
+      savedSource: "",
+      sourceDirty: false,
       sourceStatus: "",
       codingLogs: [],
     });
@@ -96,6 +100,7 @@ export function useDashboard(
       confirmLabel: sourceVersionItem ? "複製" : "作成",
     });
     if (!name?.trim()) return;
+    if (!await source.saveIfDirty()) return;
     store.setState({ busy: true, status: "コピー中…" });
     try {
       const result = await callDesktop<{ version: Version }>("createVersion", [{
@@ -121,6 +126,7 @@ export function useDashboard(
       confirmLabel: "変更",
     });
     if (!name?.trim() || name.trim() === currentName) return;
+    if (!await source.saveIfDirty()) return;
     store.setState({ busy: true, status: "名前を変更しています…" });
     try {
       const previousMessages = store.getState().messagesByVersion[version.path];

@@ -46,6 +46,7 @@ export type KakomiApp = {
   status: string;
   matchStatus: string;
   matchRunning: boolean;
+  matchStopping: boolean;
   viewerUrl: string;
   viewerOpen: boolean;
   viewerLoading: boolean;
@@ -62,6 +63,7 @@ export type KakomiApp = {
   selectedOpponent: Opponent;
   selectedBoard: Board;
   sourceStatus: string;
+  sourceDirty: boolean;
   chatFeedRef: RefObject<HTMLDivElement | null>;
   matchOutputRef: RefObject<HTMLPreElement | null>;
   sourceEditorRef: RefObject<HTMLDivElement | null>;
@@ -92,8 +94,9 @@ export type KakomiApp = {
   sendOnEnter(event: KeyboardEvent<HTMLTextAreaElement>): void;
   improve(): Promise<void>;
   cancelImprove(): Promise<void>;
-  saveSource(): Promise<void>;
+  saveSource(): Promise<boolean>;
   startMatch(): Promise<void>;
+  stopMatch(): Promise<void>;
   openViewer(): void;
   closeViewer(): void;
   updateChatScrollState(): void;

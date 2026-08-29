@@ -17,7 +17,7 @@ function VersionRow({ app, version }: AppProps & { version: Version }) {
       <TooltipButton
         className="rename-version version-action"
         onClick={() => app.renameVersion(version)}
-        disabled={app.busy}
+        disabled={app.busy || app.matchRunning}
         label="名前を変更"
       >
         <EditIcon />
@@ -25,7 +25,7 @@ function VersionRow({ app, version }: AppProps & { version: Version }) {
       <TooltipButton
         className="copy-version version-action"
         onClick={() => app.createVersion(version.path)}
-        disabled={app.busy}
+        disabled={app.busy || app.matchRunning}
         label="この版を複製"
       >
         <CopyIcon />
@@ -33,7 +33,7 @@ function VersionRow({ app, version }: AppProps & { version: Version }) {
       <TooltipButton
         className="delete-version"
         onClick={() => app.deleteVersion(version)}
-        disabled={app.busy}
+        disabled={app.busy || app.matchRunning}
         label="この版を削除"
       >
         <DeleteIcon />
@@ -65,7 +65,7 @@ export function Sidebar({ app }: AppProps) {
           <TooltipButton
             className="grid h-7 w-7 place-items-center rounded-lg border-0 bg-transparent p-0 text-[21px] leading-none text-[#656560] transition-[background,color] duration-[120ms] hover:bg-[#e8e8e4] hover:text-[#222220] dark:text-[#c6c6bf] dark:hover:bg-[#30302d] dark:hover:text-[#f2f2ee]"
             onClick={() => app.createVersion()}
-            disabled={app.busy}
+            disabled={app.busy || app.matchRunning}
             label="テンプレートをベースに新規作成"
           >
             ＋

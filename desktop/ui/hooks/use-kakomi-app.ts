@@ -22,7 +22,7 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
   const sourceEditorRef = useRef<HTMLDivElement>(null);
   const source = useSourceEditor(store, sourceEditorRef, darkMode);
   const chat = useChat(store, chatFeedRef, source, dialogs);
-  const match = useMatch(store, matchOutputRef, chat.scroll);
+  const match = useMatch(store, matchOutputRef, chat.scroll, source);
   const dashboard = useDashboard(store, source, chat, dialogs);
   const pollLogs = useLogPolling(store, source, chat, match);
 
@@ -97,6 +97,7 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     status: state.status,
     matchStatus: state.matchStatus,
     matchRunning: state.matchRunning,
+    matchStopping: state.matchStopping,
     viewerUrl: state.viewerUrl,
     viewerOpen: state.viewerOpen,
     viewerLoading: state.viewerLoading,
@@ -113,6 +114,7 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     selectedOpponent: PRACTICE_OPPONENTS[state.ai] || PRACTICE_OPPONENTS.a1,
     selectedBoard: BOARD_PREVIEWS[state.board] || BOARD_PREVIEWS["A-1"],
     sourceStatus: state.sourceStatus,
+    sourceDirty: state.sourceDirty,
     chatFeedRef,
     matchOutputRef,
     sourceEditorRef,
@@ -157,6 +159,7 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     cancelImprove: chat.cancelImprove,
     saveSource: source.saveSource,
     startMatch: match.startMatch,
+    stopMatch: match.stopMatch,
     openViewer: match.openViewer,
     closeViewer: match.closeViewer,
     updateChatScrollState: chat.updateScrollState,

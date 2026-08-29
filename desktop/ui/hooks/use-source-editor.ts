@@ -14,13 +14,17 @@ export function useSourceEditor(
   const editor = useMonacoEditor({
     containerRef: sourceEditorRef,
     darkMode,
-    onChange: (source) => store.setState({ source }),
+    onChange: (source) =>
+      store.setState((current) => ({
+        source,
+        sourceDirty: source !== current.savedSource,
+      })),
     onSave: () => void saveSource(),
   });
 
   async function loadSource(versionPath = store.getState().selected) {
     if (!versionPath) {
-      store.setState({ source: "", sourceStatus: "" });
+      store.setState({ source: "", savedSource: "", sourceDirty: false, sourceStatus: "" });
       await editor.ready();
       editor.setValue("");
       return;
@@ -29,7 +33,7 @@ export function useSourceEditor(
     try {
       const source = await callDesktop<string>("getSource", [versionPath]);
       if (store.getState().selected !== versionPath) return;
-      store.setState({ source });
+      store.setState({ source, savedSource: source, sourceDirty: false });
       await editor.ready();
       if (store.getState().selected !== versionPath) return;
       editor.setValue(source);
@@ -42,21 +46,31 @@ export function useSourceEditor(
     }
   }
 
-  async function saveSource() {
+  async function saveSource(): Promise<boolean> {
     const current = store.getState();
-    if (!current.selected || current.busy) return;
+    if (!current.selected || current.busy) return false;
+    const versionPath = current.selected;
     store.setState({ busy: true, sourceStatus: "保存しています…" });
     try {
       await editor.ready();
       const source = editor.getValue();
       store.setState({ source });
       const result = await callDesktop<{ message: string }>("saveSource", [
-        store.getState().selected,
+        versionPath,
         source,
       ]);
-      store.setState({ sourceStatus: result.message });
+      const latest = store.getState();
+      if (latest.selected === versionPath) {
+        store.setState({
+          savedSource: source,
+          sourceDirty: editor.getValue() !== source,
+          sourceStatus: result.message,
+        });
+      }
+      return true;
     } catch (error) {
       store.setState({ sourceStatus: `エラー: ${errorMessage(error)}` });
+      return false;
     } finally {
       store.setState({ busy: false });
     }
@@ -81,6 +95,9 @@ export function useSourceEditor(
   return {
     loadSource,
     saveSource,
+    async saveIfDirty() {
+      return !store.getState().sourceDirty || await saveSource();
+    },
     reloadSource,
     clear: () => editor.setValue(""),
     layout: editor.layout,
