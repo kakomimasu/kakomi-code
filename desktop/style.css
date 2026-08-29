@@ -800,6 +800,11 @@ a:focus-visible {
   object-fit: contain;
 }
 
+.agent-icon picture {
+  display: grid;
+  place-items: center;
+}
+
 .agent-icon.active {
   border-color: #dfdfda;
   background: #fff;
@@ -816,7 +821,8 @@ a:focus-visible {
   white-space: nowrap;
 }
 
-.model-picker input {
+.model-picker input,
+.model-picker select {
   width: 132px;
   height: 30px;
   padding: 0 8px;
@@ -828,7 +834,12 @@ a:focus-visible {
   outline: none;
 }
 
-.model-picker input:focus {
+.model-picker select {
+  width: 180px;
+}
+
+.model-picker input:focus,
+.model-picker select:focus {
   border-color: #bcbcb7;
   box-shadow: 0 0 0 2px #00000008;
 }
@@ -1372,6 +1383,7 @@ a:focus-visible {
   .coding-log-text,
   .coding-log-detail,
   .model-picker input,
+  .model-picker select,
   .opponent-level {
     color: #d0d0c9;
   }
@@ -1403,12 +1415,14 @@ a:focus-visible {
     color: #92928b;
   }
 
-  .model-picker input {
+  .model-picker input,
+  .model-picker select {
     border-color: #444440;
     background: #1d1d1b;
   }
 
   .model-picker input:focus,
+  .model-picker select:focus,
   .source-output:focus-within {
     border-color: #686862;
     box-shadow: 0 0 0 2px #ffffff0d;

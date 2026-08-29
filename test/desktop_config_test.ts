@@ -36,6 +36,8 @@ Deno.test("画面はViteでReactをバンドルして起動する", async () => 
   assertEquals(config.tasks["ui:build"], "deno task build");
   assertStringIncludes(config.tasks.desktop, "deno desktop");
   assertStringIncludes(config.tasks.desktop, " .");
+  assertStringIncludes(config.tasks["desktop:mac"], "--output Kakomimasu ");
+  assertFalse(config.tasks["desktop:mac"].includes("--output Kakomimasu.app"));
   assertEquals(config.compile.include, ["dist", "template"]);
   assertStringIncludes(config.tasks.desktop, "--allow-run");
   assertStringIncludes(viteConfig, 'publicDir: "node_modules/monaco-editor/min"');

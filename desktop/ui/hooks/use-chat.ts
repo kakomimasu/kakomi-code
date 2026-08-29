@@ -215,7 +215,7 @@ export function useChat(
     saveModel() {
       const current = store.getState();
       const value = (current.models[current.agent] || "").trim();
-      const model = value && !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value) ? "" : value;
+      const model = value && !/^[A-Za-z0-9][A-Za-z0-9._:/~-]*$/.test(value) ? "" : value;
       const models = { ...current.models, [current.agent]: model };
       store.setState({ models });
       saveModelPreferences(models);

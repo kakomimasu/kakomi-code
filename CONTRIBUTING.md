@@ -8,7 +8,7 @@
 
 - Deno 2.9以降
 - Git
-- デスクトップアプリを確認する場合はCodex CLIまたはClaude Code CLI
+- デスクトップアプリの改善依頼を確認する場合はCodex CLI、Claude Code CLI、OpenCodeのいずれか
 
 セットアップ:
 
