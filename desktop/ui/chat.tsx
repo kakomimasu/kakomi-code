@@ -220,10 +220,18 @@ function ChatFeed({ app }: AppProps) {
       onScroll={() => app.updateChatScrollState()}
     >
       {app.messages.length === 0 && (
-        <article className="welcome">
-          <img src={appIconUrl} alt="" />
-          <h2>どんな作戦にしますか？</h2>
-          <p>アイデアを伝えると選択中のエージェントを改善します。</p>
+        <article className="mx-0 my-auto w-[min(440px,90%)] self-center px-6 py-8 text-center">
+          <img
+            className="mb-3.5 h-12 w-12 rounded-[13px] shadow-[0_5px_18px_#00000016] dark:shadow-[0_4px_16px_#00000055]"
+            src={appIconUrl}
+            alt=""
+          />
+          <h2 className="m-0 text-[24px] font-[680] tracking-[-0.025em] text-[#292927] dark:text-[#efefeb]">
+            どんな作戦にしますか？
+          </h2>
+          <p className="mx-auto mt-[9px] mb-0 text-[14px] leading-[1.65] text-[#858580] dark:text-[#b9b9b2]">
+            アイデアを伝えると選択中のエージェントを改善します。
+          </p>
         </article>
       )}
       {app.messagesBeforeCodingLogs.map((message: Message, index: number) => (
@@ -247,9 +255,13 @@ function ViewerPanel({ app }: AppProps) {
       keepMounted
       aria-label="囲みマスの対戦画面"
     >
-      {app.viewerLoading && <div className="viewer-loading">対戦画面を読み込んでいます…</div>}
+      {app.viewerLoading && (
+        <div className="absolute inset-0 z-[1] grid place-items-center bg-[#fbfbfa] text-[13px] text-[#777773] dark:bg-[#1b1b1a] dark:text-[#b3b3ac]">
+          対戦画面を読み込んでいます…
+        </div>
+      )}
       <iframe
-        className="viewer-frame"
+        className="block h-full w-full border-0 bg-white"
         title="囲みマスの対戦画面"
         src={app.viewerOpen ? app.viewerUrl : "about:blank"}
         onLoad={() => app.setViewerLoading(false)}
@@ -290,10 +302,10 @@ export function ChatPane({ app }: AppProps) {
             対戦画面
           </Tabs.Tab>
         </Tabs.List>
-        <div className="chat-header-actions">
+        <div className="flex items-center gap-2">
           {app.viewerOpen && (
             <a
-              className="viewer-external-link"
+              className="text-[11px] text-[#777773] no-underline hover:text-[var(--accent)] dark:text-[#b3b3ac]"
               href={app.viewerUrl}
               target="_blank"
               rel="noopener noreferrer"
