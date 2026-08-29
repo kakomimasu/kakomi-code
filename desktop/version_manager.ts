@@ -5,6 +5,14 @@ export const BASE_VERSION_NAME = "エルメマス1号";
 export const TEMPLATE_PATH = "template/main.ts";
 const VERSION_PATTERN = /^v(\d{3,})-/;
 
+export function normalizeSourceVersion(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") {
+    throw new Error("コピー元のバージョンが不正です。");
+  }
+  return value;
+}
+
 function isManagedVersionName(name: string): boolean {
   return name === BASE_VERSION_NAME || VERSION_PATTERN.test(name);
 }

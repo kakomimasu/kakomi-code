@@ -2,13 +2,26 @@ import { Field } from "@base-ui/react/field";
 import { Tabs } from "@base-ui/react/tabs";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { classes } from "./common.tsx";
-import { appIconUrl, claudeIconUrl, codexIconUrl } from "./assets.ts";
+import {
+  appIconUrl,
+  claudeIconUrl,
+  codexIconUrl,
+  opencodeDarkIconUrl,
+  opencodeLightIconUrl,
+} from "./assets.ts";
+import { ModelPicker } from "./model-picker.tsx";
 import { Button, TooltipButton, TooltipToggleButton } from "./primitives.tsx";
 import type { AppProps, CodingLogEntry, Message } from "./types.ts";
 
 const AGENTS = [
   { id: "codex", label: "Codex", image: codexIconUrl },
   { id: "claude", label: "Claude Code", image: claudeIconUrl },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    image: opencodeLightIconUrl,
+    darkImage: opencodeDarkIconUrl,
+  },
 ] as const;
 
 function ChatMessage({
@@ -104,40 +117,17 @@ function AgentPicker({ app }: AppProps) {
           disabled={app.busy}
           key={agent.id}
         >
-          <img src={agent.image} alt={agent.label} />
+          {"darkImage" in agent
+            ? (
+              <picture>
+                <source media="(prefers-color-scheme: dark)" srcSet={agent.darkImage} />
+                <img src={agent.image} alt={agent.label} />
+              </picture>
+            )
+            : <img src={agent.image} alt={agent.label} />}
         </TooltipToggleButton>
       ))}
     </ToggleGroup>
-  );
-}
-
-function ModelPicker({ app }: AppProps) {
-  return (
-    <Field.Root
-      className="model-picker"
-      disabled={app.busy}
-      title="モデルID。空欄ならCLIのデフォルトを使います。"
-    >
-      <Field.Label>モデル</Field.Label>
-      <Field.Control
-        type="text"
-        value={app.model}
-        onValueChange={(value) => app.setModel(value)}
-        onBlur={() => app.saveModel()}
-        list={`model-options-${app.agent}`}
-        placeholder="デフォルト"
-        autoComplete="off"
-        spellCheck={false}
-      />
-      <datalist id={`model-options-${app.agent}`}>
-        {app.modelOptions.map((option: { value: string; label: string }) => (
-          <option value={option.value} label={option.label} key={option.value} />
-        ))}
-      </datalist>
-      <Field.Description className="sr-only">
-        モデルIDを指定します。空欄ならコーディングAIのデフォルトを使います。
-      </Field.Description>
-    </Field.Root>
   );
 }
 

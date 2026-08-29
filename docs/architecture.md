@@ -4,7 +4,7 @@
 
 囲みコードは、Deno
 Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はReact、CSS、TypeScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
-/ Claude Codeの起動を担当します。
+/ Claude Code / OpenCodeの起動を担当します。
 
 ```mermaid
 flowchart LR
@@ -19,33 +19,35 @@ flowchart LR
   LocalAPI --> Versions[versions/*/main.ts]
   LocalAPI --> History[ホーム内のチャット履歴]
   LocalAPI --> Match[Deno対戦プロセス]
-  LocalAPI --> Agent[Codex / Claude Code]
+  LocalAPI --> Agent[Codex / Claude Code / OpenCode]
   Match --> Kakomimasu[囲みマスAPI]
   Agent --> SelectedMain[選択中の main.ts]
 ```
 
 ## コンポーネント
 
-| 場所                             | 役割                                                            |
-| -------------------------------- | --------------------------------------------------------------- |
-| `run.sh`, `run.bat`              | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する     |
-| `scripts/build_release.ts`       | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする         |
-| `.github/workflows/release.yml`  | タグから各OS向け配布ファイルとGitHub Releaseを作る              |
-| `package.json`, `vite.config.ts` | React画面のVite開発サーバーと `dist/` ビルドを設定する          |
-| `index.html`                     | ViteのHTMLエントリーとAPIトークンの埋め込み先                   |
-| `server.ts`                      | Vite自動検出から既存のDeno Desktopバックエンドを起動する        |
-| `desktop/app.ts`                 | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理 |
-| `desktop/app_paths.ts`           | ソース版・配布版の作業フォルダとテンプレートを解決する          |
-| `desktop/command_resolver.ts`    | Deno、Codex、Claude Codeの実行ファイルをユーザー環境から探す    |
-| `desktop/ui.tsx`, `desktop/ui/`  | Reactの起動処理、画面コンポーネント、状態管理用hooks            |
-| `desktop/version_manager.ts`     | バージョンの初期化、一覧、作成、検証、名前変更、削除            |
-| `desktop/chat_history.ts`        | チャット履歴の検証と原子的な保存                                |
-| `desktop/http_security.ts`       | ループバック・同一オリジン・APIトークンの検証                   |
-| `desktop/static_assets.ts`       | `dist/` 内の安全なパスとContent-Typeを検証                      |
-| `desktop/terminal_text.ts`       | 端末出力からANSI制御シーケンスを除去                            |
-| `desktop/window_geometry.ts`     | 利用可能な画面領域とウィンドウサイズの検証                      |
-| `template/main.ts`               | 新しいAIの初期コードと囲みマスクライアントの設定                |
-| `website/`                       | GitHub Pagesで公開する、アプリとは独立した静的サイト            |
+| 場所                             | 役割                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `run.sh`, `run.bat`              | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する            |
+| `scripts/build_release.ts`       | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする                |
+| `.github/workflows/release.yml`  | タグから各OS向け配布ファイルとGitHub Releaseを作る                     |
+| `package.json`, `vite.config.ts` | React画面のVite開発サーバーと `dist/` ビルドを設定する                 |
+| `index.html`                     | ViteのHTMLエントリーとAPIトークンの埋め込み先                          |
+| `server.ts`                      | Vite自動検出から既存のDeno Desktopバックエンドを起動する               |
+| `desktop/app.ts`                 | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理        |
+| `desktop/application_menu.ts`    | ネイティブメニューと終了ショートカットを構成する                       |
+| `desktop/app_paths.ts`           | ソース版・配布版の作業フォルダとテンプレートを解決する                 |
+| `desktop/command_resolver.ts`    | Deno、Codex、Claude Code、OpenCodeの実行ファイルをユーザー環境から探す |
+| `desktop/coding_agent.ts`        | コーディングAIごとの起動引数とOpenCodeの実行時権限を組み立てる         |
+| `desktop/ui.tsx`, `desktop/ui/`  | Reactの起動処理、画面コンポーネント、状態管理用hooks                   |
+| `desktop/version_manager.ts`     | バージョンの初期化、一覧、作成、検証、名前変更、削除                   |
+| `desktop/chat_history.ts`        | チャット履歴の検証と原子的な保存                                       |
+| `desktop/http_security.ts`       | ループバック・同一オリジン・APIトークンの検証                          |
+| `desktop/static_assets.ts`       | `dist/` 内の安全なパスとContent-Typeを検証                             |
+| `desktop/terminal_text.ts`       | 端末出力からANSI制御シーケンスを除去                                   |
+| `desktop/window_geometry.ts`     | 利用可能な画面領域とウィンドウサイズの検証                             |
+| `template/main.ts`               | 新しいAIの初期コードと囲みマスクライアントの設定                       |
+| `website/`                       | GitHub Pagesで公開する、アプリとは独立した静的サイト                   |
 
 ## 起動フロー
 
@@ -123,7 +125,7 @@ HTTP経由では次をすべて満たす必要があります。
 
 ## コーディングAI
 
-改善依頼ではCodexまたはClaude Codeを子プロセスとして起動します。
+改善依頼ではCodex、Claude Code、OpenCodeのいずれかを子プロセスとして起動します。
 
 - 作業対象は選択中のバージョン
 - AIは一時作業フォルダ内で実行し、正常終了時に通常ファイルの `main.ts` だけを選択中の版へ反映
@@ -131,6 +133,12 @@ HTTP経由では次をすべて満たす必要があります。
 - 実装後に `deno check main.ts` を要求
 - CLIの構造化イベントを画面用ログへ変換
 - ログ件数と文字数に上限を設定
+
+OpenCodeは外部プラグインを読み込まない `--pure` モードで、`main.ts`
+だけを置いた一時フォルダ内で起動します。
+その中では読み書きだけを許可し、コマンド実行や外部フォルダへのアクセスは拒否します。終了後はアプリ側で型チェックし、
+型エラーがあれば結果をOpenCodeへ返して最大2回まで再修正します。成功した場合だけ選択中の版の
+`main.ts` へ変更を反映します。
 
 クライアントAPIの参照ソースはアプリ側で取得し、プロンプトへ読み取り専用の資料として渡します。取得できない場合は現在の
 `main.ts` だけを根拠に改善します。
@@ -161,5 +169,6 @@ HTTP経由では次をすべて満たす必要があります。
 - `test/main_test.ts`: 初期AIの公開動作
 - `test/app_paths_test.ts`: 配布版の作業フォルダと同梱テンプレートの展開
 - `test/command_resolver_test.ts`: CLI探索と依存取得先の制限
+- `test/coding_agent_test.ts`: OpenCodeの起動引数とファイル・ツール権限
 
 ローカルとCIの共通入口は `deno task verify` です。

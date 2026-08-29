@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
   BASE_VERSION_NAME,
@@ -6,9 +6,21 @@ import {
   deleteVersion,
   initializeProject,
   listVersions,
+  normalizeSourceVersion,
   renameVersion,
   validateVersion,
 } from "../desktop/version_manager.ts";
+
+Deno.test("コピー元の未指定値は新規作成として扱う", () => {
+  assertEquals(normalizeSourceVersion(undefined), undefined);
+  assertEquals(normalizeSourceVersion(null), undefined);
+  assertEquals(normalizeSourceVersion("/versions/v002-test"), "/versions/v002-test");
+  assertThrows(
+    () => normalizeSourceVersion(123),
+    Error,
+    "コピー元のバージョンが不正です。",
+  );
+});
 
 Deno.test("fresh cloneではtemplateから最初の版を初期化する", async () => {
   const projectDir = await Deno.makeTempDir();

@@ -5,8 +5,8 @@
 </p>
 
 囲みマスで使う AI を、アイデアから育てて対戦へ送り出すためのデスクトップアプリです。
-プログラミングにまだ慣れていなくても、同梱のサンプルからすぐに始められます。作戦の改善は、Codex や
-Claude Code に日本語で相談できます。
+プログラミングにまだ慣れていなくても、同梱のサンプルからすぐに始められます。作戦の改善は、Codex、
+Claude Code、OpenCode に日本語で相談できます。
 
 [紹介ページを見る](https://kakomimasu.github.io/kakomi-code/) ·
 [囲みマス公式サイト](https://kakomimasu.com/) · [Deno公式サイト](https://deno.com/)
@@ -34,7 +34,7 @@ Linuxでは、ダウンロード後に `chmod +x KakomiCode-*.AppImage` を実�
 
 - 同梱のサンプルエージェントで、すぐに囲みマスの対戦を試せる
 - 作戦ごとにエージェントを分け、複製しながら別のアイデアを安全に試せる
-- 「もっと積極的に陣地を取りたい」など、日本語で Codex / Claude Code に改善を頼める
+- 「もっと積極的に陣地を取りたい」など、日本語で Codex / Claude Code / OpenCode に改善を頼める
 - 公式 AI を相手に、対戦相手と盤面を選んで練習できる
 - 画面内のエディターから `main.ts` を直接編集できる
 - OSの外観設定に合わせて、ライトモードとダークモードを自動で切り替えられる
@@ -45,8 +45,9 @@ Linuxでは、ダウンロード後に `chmod +x KakomiCode-*.AppImage` を実�
 - 初回の依存関係取得と対戦に使うインターネット接続
 
 サンプルエージェントの作成と対戦には Deno だけで十分です。チャットから作戦を改善するときだけ、
-[Codex CLI](https://learn.chatgpt.com/docs/codex/cli) または
-[Claude Code](https://code.claude.com/docs/en/overview) をインストールし、ログインしてください。
+[Codex CLI](https://learn.chatgpt.com/docs/codex/cli)、
+[Claude Code](https://code.claude.com/docs/en/overview)、または
+[OpenCode](https://opencode.ai/docs/) をインストールし、ログインしてください。
 
 ## ソースコードから起動
 
@@ -89,7 +90,7 @@ VS Code を使う場合は、`Cmd/Ctrl + Shift + B` を押して「囲みコー�
 
 ## 作戦を育てる
 
-チャット欄で Codex または Claude Code
+チャット欄で Codex、Claude Code、OpenCode のいずれか
 を選び、改善したいことを日本語で入力すると、選択中のエージェントの `main.ts` を更新します。
 
 例:
@@ -116,7 +117,7 @@ VS Code を使う場合は、`Cmd/Ctrl + Shift + B` を押して「囲みコー�
 
 - 起動できない場合は、ターミナルで `deno --version` が成功するか確認してください。
 - 初回ビルドが進まない場合は、インターネット接続を確認してからもう一度起動してください。
-- Codex / Claude Code
+- Codex / Claude Code / OpenCode
   に改善を頼めない場合は、選択したCLIがインストール済みでログイン済みか確認してください。
 - 対戦できない場合は、新しいエージェントを作り、サンプルのまま `none`
   を相手に試すと原因を切り分けやすくなります。

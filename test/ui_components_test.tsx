@@ -73,6 +73,7 @@ const { Tooltip } = await import("@base-ui/react/tooltip");
 const { Field } = await import("@base-ui/react/field");
 const { AppDialog, useDialogController } = await import("../desktop/ui/dialogs.tsx");
 const { AppErrorBoundary } = await import("../desktop/ui/error-boundary.tsx");
+const { ModelPicker } = await import("../desktop/ui/model-picker.tsx");
 const { ResizeHandle, StatusText, TooltipToggleButton } = await import(
   "../desktop/ui/primitives.tsx"
 );
@@ -209,6 +210,58 @@ Deno.test("Fieldは入力欄へラベルと説明を関連付ける", () => {
   }
 });
 
+function ModelPickerHarness({
+  agent,
+}: {
+  agent: "codex" | "claude" | "opencode";
+}) {
+  const [model, setModel] = useState("");
+  return (
+    <ModelPicker
+      app={{
+        agent,
+        busy: false,
+        model,
+        modelOptions: [
+          { value: "openai/gpt-5", label: "openai/gpt-5" },
+          { value: "anthropic/claude", label: "anthropic/claude" },
+        ],
+        setModel,
+        saveModel: () => {},
+      }}
+    />
+  );
+}
+
+Deno.test("各コーディングAIのモデル一覧はクリック選択できる", () => {
+  const { host, root } = createTestRoot();
+  try {
+    flushSync(() =>
+      root.render(
+        <>
+          <ModelPickerHarness agent="codex" />
+          <ModelPickerHarness agent="claude" />
+          <ModelPickerHarness agent="opencode" />
+        </>,
+      )
+    );
+    for (const label of ["Codex", "Claude Code", "OpenCode"]) {
+      const select = host.querySelector<HTMLSelectElement>(
+        `select[aria-label="${label}のモデル"]`,
+      );
+      assertExists(select);
+      assertEquals(select.value, "");
+      flushSync(() => {
+        select.value = "anthropic/claude";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      assertEquals(select.value, "anthropic/claude");
+    }
+  } finally {
+    flushSync(() => root.unmount());
+  }
+});
+
 function ResizeHarness() {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [utilityWidth, setUtilityWidth] = useState(520);
@@ -339,7 +392,7 @@ Deno.test("破壊的な確認はAlert Dialogとしてキャンセルできる", 
 });
 
 function ToggleHarness() {
-  const [agent, setAgent] = useState<"codex" | "claude">("codex");
+  const [agent, setAgent] = useState<"codex" | "claude" | "opencode">("codex");
   return (
     <Tooltip.Provider delay={0}>
       <ToggleGroup
@@ -347,11 +400,14 @@ function ToggleHarness() {
         value={[agent]}
         onValueChange={(agents) => {
           const selected = agents[0];
-          if (selected === "codex" || selected === "claude") setAgent(selected);
+          if (selected === "codex" || selected === "claude" || selected === "opencode") {
+            setAgent(selected);
+          }
         }}
       >
         <TooltipToggleButton label="Codex" value="codex">C</TooltipToggleButton>
         <TooltipToggleButton label="Claude Code" value="claude">A</TooltipToggleButton>
+        <TooltipToggleButton label="OpenCode" value="opencode">O</TooltipToggleButton>
       </ToggleGroup>
       <output data-agent>{agent}</output>
     </Tooltip.Provider>
@@ -364,19 +420,27 @@ Deno.test("Toggle GroupはAIを一つだけ選択する", () => {
     flushSync(() => root.render(<ToggleHarness />));
     const codex = host.querySelector<HTMLButtonElement>('[aria-label="Codex"]');
     const claude = host.querySelector<HTMLButtonElement>('[aria-label="Claude Code"]');
+    const opencode = host.querySelector<HTMLButtonElement>('[aria-label="OpenCode"]');
     assertExists(codex);
     assertExists(claude);
+    assertExists(opencode);
     assertEquals(codex.getAttribute("aria-pressed"), "true");
     assertEquals(claude.getAttribute("aria-pressed"), "false");
+    assertEquals(opencode.getAttribute("aria-pressed"), "false");
 
     flushSync(() => claude.click());
     assertEquals(codex.getAttribute("aria-pressed"), "false");
     assertEquals(claude.getAttribute("aria-pressed"), "true");
     assertEquals(host.querySelector("[data-agent]")?.textContent, "claude");
 
-    flushSync(() => claude.click());
-    assertEquals(claude.getAttribute("aria-pressed"), "true");
-    assertEquals(host.querySelector("[data-agent]")?.textContent, "claude");
+    flushSync(() => opencode.click());
+    assertEquals(claude.getAttribute("aria-pressed"), "false");
+    assertEquals(opencode.getAttribute("aria-pressed"), "true");
+    assertEquals(host.querySelector("[data-agent]")?.textContent, "opencode");
+
+    flushSync(() => opencode.click());
+    assertEquals(opencode.getAttribute("aria-pressed"), "true");
+    assertEquals(host.querySelector("[data-agent]")?.textContent, "opencode");
   } finally {
     flushSync(() => root.unmount());
   }

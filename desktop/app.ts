@@ -1,7 +1,18 @@
 import { join } from "@std/path";
+import { applicationMenu } from "./application_menu.ts";
 import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
 import { applyAgentMain, createAgentWorkspace } from "./agent_workspace.ts";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
+import {
+  type CodingAgent,
+  codingAgentCommand,
+  createOpenCodeWorkspace,
+  isCodingAgent,
+  openCodeCorrectionPrompt,
+  parseOpenCodeEvent,
+  parseOpenCodeModels,
+  validateOpenCodeWorkspace,
+} from "./coding_agent.ts";
 import { dependencyCacheArgs, findExecutable } from "./command_resolver.ts";
 import { hasValidApiToken, isTrustedLoopbackRequest } from "./http_security.ts";
 import { readJsonBody, RequestBodyTooLargeError } from "./request_body.ts";
@@ -13,6 +24,7 @@ import {
   deleteVersion,
   initializeProject,
   listVersions,
+  normalizeSourceVersion,
   renameVersion,
   validateVersion,
 } from "./version_manager.ts";
@@ -32,7 +44,6 @@ type Settings = {
   board: string;
   versionDir: string;
 };
-type CodingAgent = "codex" | "claude";
 type ImproveRequest = { idea: string; versionDir: string; agent: CodingAgent; model: string };
 
 async function saveProjectDir(projectDir: string) {
@@ -75,16 +86,16 @@ function validateImprove(value: unknown): ImproveRequest {
   if (typeof versionDir !== "string" || !versionDir) {
     throw new Error("バージョンを選択してください。");
   }
-  if (agent !== "codex" && agent !== "claude") {
+  if (!isCodingAgent(agent)) {
     throw new Error("コーディングAIを選択してください。");
   }
   if (
     model !== undefined &&
     (typeof model !== "string" || model.trim().length > 100 ||
-      (model.trim() && !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(model.trim())))
+      (model.trim() && !/^[A-Za-z0-9][A-Za-z0-9._:/~-]*$/.test(model.trim())))
   ) {
     throw new Error(
-      "モデルIDは英数字、ピリオド、ハイフン、アンダースコア、コロンで入力してください。",
+      "モデルIDは英数字、ピリオド、スラッシュ、チルダ、ハイフン、アンダースコア、コロンで入力してください。",
     );
   }
   return {
@@ -120,6 +131,7 @@ const window = new Deno.BrowserWindow({
   width: 1440,
   height: 900,
 });
+window.setApplicationMenu(applicationMenu());
 const matchLogs: string[] = [];
 type CodingAgentLog = {
   id: string;
@@ -235,13 +247,19 @@ function stopMatchForShutdown() {
   }
 }
 
-// Deno.serve keeps the runtime alive after the native window closes. Exit the
-// process as well so the title-bar close button fully quits the desktop app.
-window.addEventListener("close", () => {
+let shuttingDown = false;
+
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
   stopCodingAgentForShutdown();
   stopMatchForShutdown();
   Deno.exit(0);
-});
+}
+
+// Deno.serve keeps the runtime alive after the native window closes. Exit the
+// process as well so the title-bar close button fully quits the desktop app.
+window.addEventListener("close", shutdown);
 
 function addMatchLog(message: string) {
   const cleanMessage = stripTerminalSequences(message);
@@ -534,6 +552,13 @@ function handleClaudeEvent(event: Record<string, unknown>, state: StructuredOutp
   }
 }
 
+function handleOpenCodeEvent(event: Record<string, unknown>, state: StructuredOutputState) {
+  const result = parseOpenCodeEvent(event, `opencode-${++state.lineNumber}`);
+  if (result.log) upsertCodingAgentLog(result.log);
+  if (result.finalOutput) state.finalOutput = result.finalOutput;
+  if (result.errorMessage) state.errorMessage = result.errorMessage;
+}
+
 async function captureCodingAgentJson(
   stream: ReadableStream<Uint8Array>,
   agent: CodingAgent,
@@ -548,7 +573,8 @@ async function captureCodingAgentJson(
       const record = asRecord(event);
       if (!record) throw new Error("JSONイベントがオブジェクトではありません。");
       if (agent === "codex") handleCodexEvent(record, state);
-      else handleClaudeEvent(record, state);
+      else if (agent === "claude") handleClaudeEvent(record, state);
+      else handleOpenCodeEvent(record, state);
     } catch {
       state.unparsedOutput = appendCapturedOutput(state.unparsedOutput, `${trimmed}\n`);
       addCodingAgentStatus(trimmed);
@@ -608,6 +634,24 @@ expose("fitWindowToScreen", (value: unknown) => {
   return geometry;
 });
 expose("getDashboard", () => dashboard(projectDir));
+expose("getOpenCodeModels", async () => {
+  const command = await findExecutable("opencode");
+  if (!command) return [];
+  const process = new Deno.Command(command, {
+    args: ["models", "--pure"],
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  const [stdout, stderr, status] = await Promise.all([
+    captureOutput(process.stdout, "stdout", () => {}),
+    captureOutput(process.stderr, "stderr", () => {}),
+    process.status,
+  ]);
+  if (!status.success) {
+    throw new Error(stderr || "OpenCodeのモデル一覧を取得できませんでした。");
+  }
+  return parseOpenCodeModels(stdout);
+});
 expose("getChatHistory", () => loadChatHistory(chatHistoryFile));
 expose("saveChatHistory", async (history: unknown) => {
   await saveChatHistory(chatHistoryFile, history);
@@ -666,10 +710,8 @@ expose("createVersion", async (label: unknown) => {
     throw new Error("AI名を入力してください。");
   }
   if (request.agentName.trim().length > 40) throw new Error("AI名は40文字以内で入力してください。");
-  if (request.sourceVersion !== undefined && typeof request.sourceVersion !== "string") {
-    throw new Error("コピー元のバージョンが不正です。");
-  }
-  const version = await createVersion(projectDir, request.agentName, request.sourceVersion);
+  const sourceVersion = normalizeSourceVersion(request.sourceVersion);
+  const version = await createVersion(projectDir, request.agentName, sourceVersion);
   return { version, dashboard: await dashboard(projectDir) };
 });
 
@@ -817,121 +859,147 @@ expose("startMatch", async (value: unknown) => {
   };
 });
 
+type CodingAgentRunResult = {
+  cancelled: boolean;
+  output: string;
+};
+
+async function runCodingAgentProcess(
+  command: string,
+  specification: ReturnType<typeof codingAgentCommand>,
+  agent: CodingAgent,
+): Promise<CodingAgentRunResult> {
+  addCodingAgentStatus(
+    `$ ${specification.commandName} ${specification.loggedArgs.join(" ")}`,
+  );
+  const process = new Deno.Command(command, {
+    args: specification.args,
+    cwd: specification.cwd,
+    env: specification.env,
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  codingAgentProcess = process;
+  addCodingAgentStatus(`プロセスを開始しました (PID: ${process.pid})。`);
+  const structuredOutput: StructuredOutputState = {
+    buffer: "",
+    rawOutput: "",
+    unparsedOutput: "",
+    finalOutput: "",
+    errorMessage: "",
+    lineNumber: 0,
+  };
+  try {
+    const [stdout, stderr, status] = await Promise.all([
+      captureCodingAgentJson(process.stdout, agent, structuredOutput),
+      captureOutput(process.stderr, "stderr", addCodingAgentStatus),
+      process.status,
+    ]);
+    if (codingAgentStopRequested) return { cancelled: true, output: "" };
+    if (!status.success) {
+      throw new Error(
+        structuredOutput.errorMessage || stderr || structuredOutput.unparsedOutput || stdout ||
+          `${command} が正常終了しませんでした。`,
+      );
+    }
+    return {
+      cancelled: false,
+      output: structuredOutput.finalOutput || structuredOutput.unparsedOutput.trim() ||
+        "コマンド出力はありません。",
+    };
+  } finally {
+    if (codingAgentProcess === process) codingAgentProcess = undefined;
+  }
+}
+
 async function improveWithAgent(value: unknown) {
   const request = validateImprove(value);
   const versionDir = await validateVersion(projectDir, request.versionDir);
   codingAgentVersionDir = versionDir;
-  const agentWorkDir = await createAgentWorkspace(
-    versionDir,
-    join(projectDir, "template", "deno.json"),
-  );
+  const clientContext = await loadClientDenoContext();
+  const prompt = [
+    "囲みマス初心者向けスターターキットの作戦を改善してください。",
+    "現在の作業ディレクトリが、この改善専用のバージョンです。親や別バージョンへ移動しないでください。",
+    "編集してよいのは main.ts だけです。",
+    "Web検索、ブラウザ、外部サイトや外部APIへのアクセスは使用禁止です。ローカルの main.ts と、この後に示すクライアントの参照ソースだけを根拠に作戦を改善してください。",
+    request.agent === "opencode"
+      ? "公開APIを維持してください。型チェックはアプリ側で安全に実行するため、コマンドは実行しないでください。"
+      : "公開APIを維持し、実装後に deno check main.ts を実行してください。",
+    clientContext,
+    "作戦のアイデア:",
+    request.idea,
+  ].join("\n\n");
+  const initialAgentCommand = codingAgentCommand(request.agent, versionDir, prompt, request.model);
+  const command = await findExecutable(initialAgentCommand.commandName);
+  if (!command) {
+    throw new Error(`${initialAgentCommand.displayName}が見つかりません。`);
+  }
+  const agentWorkDir = request.agent === "opencode"
+    ? await createOpenCodeWorkspace(versionDir)
+    : await createAgentWorkspace(versionDir, join(projectDir, "template", "deno.json"));
+  const agentCommand = codingAgentCommand(request.agent, agentWorkDir, prompt, request.model);
+  resetCodingAgentLogs();
+  codingAgentStopRequested = false;
   try {
-    const clientContext = await loadClientDenoContext();
-    const prompt = [
-      "囲みマス初心者向けスターターキットの作戦を改善してください。",
-      "現在の作業ディレクトリが、この改善専用のバージョンです。親や別バージョンへ移動しないでください。",
-      "編集してよいのは main.ts だけです。",
-      "Web検索、ブラウザ、外部サイトや外部APIへのアクセスは使用禁止です。ローカルの main.ts と、この後に示すクライアントの参照ソースだけを根拠に作戦を改善してください。",
-      "公開APIを維持し、実装後に deno check main.ts を実行してください。",
-      clientContext,
-      "作戦のアイデア:",
-      request.idea,
-    ].join("\n\n");
-    const commandName = request.agent === "codex" ? "codex" : "claude";
-    const command = await findExecutable(commandName);
-    if (!command) {
-      throw new Error(
-        `${request.agent === "codex" ? "Codex CLI" : "Claude Code"}が見つかりません。`,
-      );
-    }
-    const modelArgs = request.model ? ["--model", request.model] : [];
-    const args = request.agent === "codex"
-      ? [
-        "exec",
-        "--json",
-        "--sandbox",
-        "workspace-write",
-        "--config",
-        'web_search="disabled"',
-        "--cd",
-        agentWorkDir,
-        ...modelArgs,
-        prompt,
-      ]
-      : [
-        "-p",
-        prompt,
-        "--permission-mode",
-        "acceptEdits",
-        "--tools",
-        "Read,Edit,Bash",
-        "--allowedTools",
-        "Bash(deno check main.ts)",
-        "--disallowedTools",
-        "WebSearch",
-        "--no-chrome",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        ...modelArgs,
-      ];
-    resetCodingAgentLogs();
-    const loggedArgs = request.agent === "codex"
-      ? args.slice(0, -1)
-      : [args[0], "…", ...args.slice(2)];
-    addCodingAgentStatus(`$ ${commandName} ${loggedArgs.join(" ")}`);
-    const process = new Deno.Command(command, {
-      args,
-      cwd: request.agent === "claude" ? agentWorkDir : undefined,
-      env: { BEARER_TOKEN: "" },
-      stdout: "piped",
-      stderr: "piped",
-    }).spawn();
-    codingAgentProcess = process;
-    codingAgentStopRequested = false;
-    addCodingAgentStatus(`プロセスを開始しました (PID: ${process.pid})。`);
-    const structuredOutput: StructuredOutputState = {
-      buffer: "",
-      rawOutput: "",
-      unparsedOutput: "",
-      finalOutput: "",
-      errorMessage: "",
-      lineNumber: 0,
-    };
-    try {
-      const [stdout, stderr, status] = await Promise.all([
-        captureCodingAgentJson(process.stdout, request.agent, structuredOutput),
-        captureOutput(process.stderr, "stderr", addCodingAgentStatus),
-        process.status,
-      ]);
-      if (codingAgentStopRequested) {
-        addCodingAgentStatus("停止しました。");
-        return {
-          cancelled: true,
-          message: "コーディングAIを停止しました。",
-          output: "コーディングAIを停止しました。",
-        };
-      }
-      if (!status.success) {
-        throw new Error(
-          structuredOutput.errorMessage || stderr || structuredOutput.unparsedOutput || stdout ||
-            `${command} が正常終了しませんでした。`,
-        );
-      }
-      await applyAgentMain(agentWorkDir, versionDir, MAX_SOURCE_CHARACTERS);
-      addCodingAgentStatus("正常終了しました。");
-      const output = structuredOutput.finalOutput || structuredOutput.unparsedOutput.trim() ||
-        "コマンド出力はありません。";
+    let agentResult = await runCodingAgentProcess(command, agentCommand, request.agent);
+    if (agentResult.cancelled) {
+      addCodingAgentStatus("停止しました。");
       return {
-        message: output ||
-          `${request.agent === "codex" ? "Codex" : "Claude Code"} が更新しました。`,
-        output,
+        cancelled: true,
+        message: "コーディングAIを停止しました。",
+        output: "コーディングAIを停止しました。",
       };
-    } finally {
-      if (codingAgentProcess === process) codingAgentProcess = undefined;
-      codingAgentStopRequested = false;
     }
+    if (request.agent === "opencode") {
+      const stagedMain = await validateOpenCodeWorkspace(agentWorkDir);
+      const denoCommand = await findExecutable("deno");
+      if (!denoCommand) throw new Error("Denoが見つからないため、変更を検証できませんでした。");
+      for (let correctionAttempt = 0; correctionAttempt <= 2; correctionAttempt++) {
+        const checkProcess = new Deno.Command(denoCommand, {
+          args: ["check", "--config", join(projectDir, "deno.json"), stagedMain],
+          cwd: agentWorkDir,
+          stdout: "piped",
+          stderr: "piped",
+        }).spawn();
+        const [checkStdout, checkStderr, checkStatus] = await Promise.all([
+          captureOutput(checkProcess.stdout, "stdout", addCodingAgentStatus),
+          captureOutput(checkProcess.stderr, "stderr", addCodingAgentStatus),
+          checkProcess.status,
+        ]);
+        if (checkStatus.success) break;
+        const checkError = checkStderr || checkStdout || "OpenCodeの変更で型エラーが発生しました。";
+        if (correctionAttempt === 2) throw new Error(checkError);
+        addCodingAgentStatus(
+          `型エラーをOpenCodeへ返して再修正します（${correctionAttempt + 1}/2）。`,
+        );
+        const correctionCommand = codingAgentCommand(
+          "opencode",
+          agentWorkDir,
+          openCodeCorrectionPrompt(checkError),
+          request.model,
+        );
+        agentResult = await runCodingAgentProcess(command, correctionCommand, "opencode");
+        if (agentResult.cancelled) {
+          addCodingAgentStatus("停止しました。");
+          return {
+            cancelled: true,
+            message: "コーディングAIを停止しました。",
+            output: "コーディングAIを停止しました。",
+          };
+        }
+      }
+      addCodingAgentStatus("main.tsの型チェックに成功しました。");
+    }
+    await applyAgentMain(agentWorkDir, versionDir, MAX_SOURCE_CHARACTERS);
+    addCodingAgentStatus("main.tsの変更を反映しました。");
+    addCodingAgentStatus("正常終了しました。");
+    const output = agentResult.output;
+    return {
+      message: output || `${agentCommand.displayName} が更新しました。`,
+      output,
+    };
   } finally {
+    codingAgentStopRequested = false;
     await Deno.remove(agentWorkDir, { recursive: true }).catch(() => {});
   }
 }

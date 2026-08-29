@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { callDesktop } from "../api.ts";
 import { BOARD_PREVIEWS, MODEL_OPTIONS, PRACTICE_OPPONENTS } from "../data.ts";
 import type { DialogActions } from "../dialogs.tsx";
-import type { KakomiApp, UtilityTab } from "../types.ts";
+import type { KakomiApp, ModelOption, UtilityTab } from "../types.ts";
 import { displayVersionName, errorMessage, nextFrame } from "./helpers.ts";
 import { useAppState } from "./use-app-state.ts";
 import { useChat } from "./use-chat.ts";
@@ -20,6 +20,8 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
   const chatFeedRef = useRef<HTMLDivElement>(null);
   const matchOutputRef = useRef<HTMLPreElement>(null);
   const sourceEditorRef = useRef<HTMLDivElement>(null);
+  const openCodeModelsRequested = useRef(false);
+  const [openCodeModelOptions, setOpenCodeModelOptions] = useState<ModelOption[]>([]);
   const source = useSourceEditor(store, sourceEditorRef, darkMode);
   const chat = useChat(store, chatFeedRef, source, dialogs);
   const match = useMatch(store, matchOutputRef, chat.scroll, source);
@@ -63,6 +65,21 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     };
   }, []);
 
+  useEffect(() => {
+    if (state.agent !== "opencode" || openCodeModelsRequested.current) return;
+    openCodeModelsRequested.current = true;
+    let cancelled = false;
+    void callDesktop<ModelOption[]>("getOpenCodeModels").then((options) => {
+      if (!cancelled) setOpenCodeModelOptions(options);
+    }).catch(() => {
+      openCodeModelsRequested.current = false;
+    });
+    return () => {
+      cancelled = true;
+      openCodeModelsRequested.current = false;
+    };
+  }, [state.agent]);
+
   async function selectTab(tab: UtilityTab) {
     await dashboard.selectTab(tab);
     if (tab === "match") match.scrollLogs();
@@ -87,7 +104,7 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     tab: state.tab,
     agent: state.agent,
     model: state.models[state.agent] || "",
-    modelOptions: MODEL_OPTIONS[state.agent],
+    modelOptions: state.agent === "opencode" ? openCodeModelOptions : MODEL_OPTIONS[state.agent],
     messages,
     messagesBeforeCodingLogs: finalMessage ? messages.slice(0, -1) : messages,
     displayedCodingLogs,

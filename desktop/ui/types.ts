@@ -1,6 +1,6 @@
 import type { KeyboardEvent, PointerEventHandler, RefObject, SyntheticEvent } from "react";
 
-export type CodingAgent = "codex" | "claude";
+export type CodingAgent = "codex" | "claude" | "opencode";
 export type UtilityTab = "source" | "match";
 
 export type Version = { path: string; name: string };

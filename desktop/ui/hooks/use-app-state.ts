@@ -49,18 +49,22 @@ export type AppState = {
 export type AppStore = StoreApi<AppState>;
 
 function savedAgent(): CodingAgent {
-  return localStorage.getItem(SAVED_AGENT_KEY) === "claude" ? "claude" : "codex";
+  const saved = localStorage.getItem(SAVED_AGENT_KEY);
+  return saved === "claude" || saved === "opencode" ? saved : "codex";
 }
 
 function savedModels(): Models {
-  const defaults: Models = { codex: "gpt-5.6-luna", claude: "haiku" };
+  const defaults: Models = { codex: "gpt-5.6-luna", claude: "haiku", opencode: "" };
   try {
     const parsed = JSON.parse(localStorage.getItem(SAVED_MODELS_KEY) || "{}") as
       | Partial<Models>
       | null;
     for (const agent of Object.keys(defaults) as CodingAgent[]) {
       const value = parsed?.[agent];
-      if (typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)) {
+      if (
+        typeof value === "string" &&
+        (!value || /^[A-Za-z0-9][A-Za-z0-9._:/~-]*$/.test(value))
+      ) {
         defaults[agent] = value;
       }
     }

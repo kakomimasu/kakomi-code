@@ -105,7 +105,7 @@ export function useDashboard(
     try {
       const result = await callDesktop<{ version: Version }>("createVersion", [{
         agentName: name.trim(),
-        sourceVersion,
+        ...(sourceVersion ? { sourceVersion } : {}),
       }]);
       await refresh(result.version.path);
       await source.loadSource(result.version.path);

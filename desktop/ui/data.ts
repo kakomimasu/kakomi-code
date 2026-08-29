@@ -79,4 +79,5 @@ export const MODEL_OPTIONS: Record<CodingAgent, ModelOption[]> = {
     { value: "opus", label: "Opus" },
     { value: "haiku", label: "Haiku" },
   ],
+  opencode: [],
 };

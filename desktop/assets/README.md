@@ -9,6 +9,8 @@ These UI assets are the official product marks used by the coding-agent picker:
 
 - `codex.webp`: Codex icon from the official OpenAI image URL supplied for this project.
 - `claude.svg`: Claude icon from Anthropic's official press kit.
+- `opencode-light.svg`, `opencode-dark.svg`: OpenCode's official square logo variants.
 
-References: [OpenAI brand](https://openai.com/brand/) and
-[Anthropic press kit](https://www.anthropic.com/press-kit).
+References: [OpenAI brand](https://openai.com/brand/),
+[Anthropic press kit](https://www.anthropic.com/press-kit), and
+[OpenCode brand assets](https://opencode.ai/brand).
