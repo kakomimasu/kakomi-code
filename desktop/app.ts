@@ -1,8 +1,10 @@
 import { join } from "@std/path";
 import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
+import { applyAgentMain, createAgentWorkspace } from "./agent_workspace.ts";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
 import { dependencyCacheArgs, findExecutable } from "./command_resolver.ts";
 import { hasValidApiToken, isTrustedLoopbackRequest } from "./http_security.ts";
+import { readJsonBody, RequestBodyTooLargeError } from "./request_body.ts";
 import { staticAssetRelativePath, staticContentType } from "./static_assets.ts";
 import { createTerminalTextSanitizer, stripTerminalSequences } from "./terminal_text.ts";
 import { validateWindowGeometry } from "./window_geometry.ts";
@@ -21,6 +23,8 @@ const chatHistoryFile = join(settingsDir, "chat-history.json");
 const apiToken = crypto.randomUUID();
 const MAX_CAPTURED_OUTPUT_CHARACTERS = 1_000_000;
 const MAX_LOG_TEXT_CHARACTERS = 12_000;
+const MAX_SOURCE_CHARACTERS = 1_000_000;
+const MAX_API_BODY_BYTES = 12 * 1024 * 1024;
 
 type Settings = {
   agentName: string;
@@ -145,6 +149,7 @@ let codingAgentRequestRunning = false;
 let viewerUrl = "";
 let matchRunning = false;
 let matchProcess: Deno.ChildProcess | undefined;
+let matchStopRequested = false;
 const CLIENT_REFERENCE_SOURCES = [
   {
     name: "@kakomimasu/client-deno の KakomimasuClient.ts",
@@ -646,8 +651,8 @@ expose("saveSource", async (versionDir: unknown, source: unknown) => {
   if (typeof versionDir !== "string" || !versionDir) {
     throw new Error("バージョンを選択してください。");
   }
-  if (typeof source !== "string" || !source.trim()) {
-    throw new Error("ソースを入力してください。");
+  if (typeof source !== "string" || !source.trim() || source.length > MAX_SOURCE_CHARACTERS) {
+    throw new Error("ソースは1〜1,000,000文字で入力してください。");
   }
   const target = await validateVersion(projectDir, versionDir);
   await Deno.writeTextFile(join(target, "main.ts"), source);
@@ -692,6 +697,29 @@ expose("deleteVersion", async (versionDir: unknown) => {
   return { versions: await listVersions(projectDir) };
 });
 
+expose("stopMatch", () => {
+  const process = matchProcess;
+  if (!process) return { stopped: false, message: "停止できる対戦はありません。" };
+  matchStopRequested = true;
+  try {
+    process.kill("SIGTERM");
+  } catch {
+    matchStopRequested = false;
+    return { stopped: false, message: "対戦はすでに終了処理中です。" };
+  }
+  addMatchLog("対戦の停止を要求しました。");
+  setTimeout(() => {
+    if (matchProcess !== process || !matchStopRequested) return;
+    try {
+      process.kill("SIGKILL");
+      addMatchLog("対戦を強制停止しました。");
+    } catch {
+      // 既に終了していれば何もしない。
+    }
+  }, 3_000);
+  return { stopped: true, message: "対戦の停止を要求しました。" };
+});
+
 expose("startMatch", async (value: unknown) => {
   if (matchRunning) throw new Error("すでに対戦中です。終了を待ってから次の対戦を始めてください。");
   const settings = validateSettings(value);
@@ -703,6 +731,7 @@ expose("startMatch", async (value: unknown) => {
 
   matchLogs.splice(0);
   viewerUrl = "";
+  matchStopRequested = false;
   let networkTarget: string;
   try {
     const host = new URL(Deno.env.get("KAKOMIMASU_HOST") || "https://api.kakomimasu.com");
@@ -737,6 +766,10 @@ expose("startMatch", async (value: unknown) => {
     matchRunning = false;
   }
   if (!cacheStatus.success) {
+    if (matchStopRequested) {
+      matchStopRequested = false;
+      return { message: "対戦を停止しました。", viewerUrl: "", stopped: true };
+    }
     throw new Error("依存関係を準備できませんでした。インターネット接続を確認してください。");
   }
   const process = new Deno.Command(denoCommand, {
@@ -761,14 +794,21 @@ expose("startMatch", async (value: unknown) => {
     captureOutput(process.stderr, "stderr", addMatchLog),
     process.status,
   ]).then(([, , status]) => {
+    const stopped = matchStopRequested;
     if (matchProcess === process) matchProcess = undefined;
     matchRunning = false;
+    matchStopRequested = false;
     addMatchLog(
-      status.success ? "対戦クライアントが終了しました。" : "対戦クライアントが異常終了しました。",
+      stopped
+        ? "対戦を停止しました。"
+        : status.success
+        ? "対戦クライアントが終了しました。"
+        : "対戦クライアントが異常終了しました。",
     );
   }).catch((error) => {
     if (matchProcess === process) matchProcess = undefined;
     matchRunning = false;
+    matchStopRequested = false;
     addMatchLog(`対戦クライアントの出力取得に失敗しました: ${error}`);
   });
   return {
@@ -781,105 +821,118 @@ async function improveWithAgent(value: unknown) {
   const request = validateImprove(value);
   const versionDir = await validateVersion(projectDir, request.versionDir);
   codingAgentVersionDir = versionDir;
-  const clientContext = await loadClientDenoContext();
-  const prompt = [
-    "囲みマス初心者向けスターターキットの作戦を改善してください。",
-    "現在の作業ディレクトリが、この改善専用のバージョンです。親や別バージョンへ移動しないでください。",
-    "編集してよいのは main.ts だけです。",
-    "Web検索、ブラウザ、外部サイトや外部APIへのアクセスは使用禁止です。ローカルの main.ts と、この後に示すクライアントの参照ソースだけを根拠に作戦を改善してください。",
-    "公開APIを維持し、実装後に deno check main.ts を実行してください。",
-    clientContext,
-    "作戦のアイデア:",
-    request.idea,
-  ].join("\n\n");
-  const commandName = request.agent === "codex" ? "codex" : "claude";
-  const command = await findExecutable(commandName);
-  if (!command) {
-    throw new Error(`${request.agent === "codex" ? "Codex CLI" : "Claude Code"}が見つかりません。`);
-  }
-  const modelArgs = request.model ? ["--model", request.model] : [];
-  const args = request.agent === "codex"
-    ? [
-      "exec",
-      "--json",
-      "--sandbox",
-      "workspace-write",
-      "--config",
-      'web_search="disabled"',
-      "--cd",
-      versionDir,
-      ...modelArgs,
-      prompt,
-    ]
-    : [
-      "-p",
-      prompt,
-      "--permission-mode",
-      "acceptEdits",
-      "--tools",
-      "Read,Edit,Bash",
-      "--allowedTools",
-      "Bash(deno check main.ts)",
-      "--disallowedTools",
-      "WebSearch",
-      "--no-chrome",
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      ...modelArgs,
-    ];
-  resetCodingAgentLogs();
-  const loggedArgs = request.agent === "codex"
-    ? args.slice(0, -1)
-    : [args[0], "…", ...args.slice(2)];
-  addCodingAgentStatus(`$ ${commandName} ${loggedArgs.join(" ")}`);
-  const process = new Deno.Command(command, {
-    args,
-    cwd: request.agent === "claude" ? versionDir : undefined,
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  codingAgentProcess = process;
-  codingAgentStopRequested = false;
-  addCodingAgentStatus(`プロセスを開始しました (PID: ${process.pid})。`);
-  const structuredOutput: StructuredOutputState = {
-    buffer: "",
-    rawOutput: "",
-    unparsedOutput: "",
-    finalOutput: "",
-    errorMessage: "",
-    lineNumber: 0,
-  };
+  const agentWorkDir = await createAgentWorkspace(
+    versionDir,
+    join(projectDir, "template", "deno.json"),
+  );
   try {
-    const [stdout, stderr, status] = await Promise.all([
-      captureCodingAgentJson(process.stdout, request.agent, structuredOutput),
-      captureOutput(process.stderr, "stderr", addCodingAgentStatus),
-      process.status,
-    ]);
-    if (codingAgentStopRequested) {
-      addCodingAgentStatus("停止しました。");
-      return {
-        cancelled: true,
-        message: "コーディングAIを停止しました。",
-        output: "コーディングAIを停止しました。",
-      };
-    }
-    if (!status.success) {
+    const clientContext = await loadClientDenoContext();
+    const prompt = [
+      "囲みマス初心者向けスターターキットの作戦を改善してください。",
+      "現在の作業ディレクトリが、この改善専用のバージョンです。親や別バージョンへ移動しないでください。",
+      "編集してよいのは main.ts だけです。",
+      "Web検索、ブラウザ、外部サイトや外部APIへのアクセスは使用禁止です。ローカルの main.ts と、この後に示すクライアントの参照ソースだけを根拠に作戦を改善してください。",
+      "公開APIを維持し、実装後に deno check main.ts を実行してください。",
+      clientContext,
+      "作戦のアイデア:",
+      request.idea,
+    ].join("\n\n");
+    const commandName = request.agent === "codex" ? "codex" : "claude";
+    const command = await findExecutable(commandName);
+    if (!command) {
       throw new Error(
-        structuredOutput.errorMessage || stderr || structuredOutput.unparsedOutput || stdout ||
-          `${command} が正常終了しませんでした。`,
+        `${request.agent === "codex" ? "Codex CLI" : "Claude Code"}が見つかりません。`,
       );
     }
-    addCodingAgentStatus("正常終了しました。");
-    const output = structuredOutput.finalOutput || structuredOutput.unparsedOutput.trim() ||
-      "コマンド出力はありません。";
-    return {
-      message: output || `${request.agent === "codex" ? "Codex" : "Claude Code"} が更新しました。`,
-      output,
-    };
-  } finally {
-    if (codingAgentProcess === process) codingAgentProcess = undefined;
+    const modelArgs = request.model ? ["--model", request.model] : [];
+    const args = request.agent === "codex"
+      ? [
+        "exec",
+        "--json",
+        "--sandbox",
+        "workspace-write",
+        "--config",
+        'web_search="disabled"',
+        "--cd",
+        agentWorkDir,
+        ...modelArgs,
+        prompt,
+      ]
+      : [
+        "-p",
+        prompt,
+        "--permission-mode",
+        "acceptEdits",
+        "--tools",
+        "Read,Edit,Bash",
+        "--allowedTools",
+        "Bash(deno check main.ts)",
+        "--disallowedTools",
+        "WebSearch",
+        "--no-chrome",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        ...modelArgs,
+      ];
+    resetCodingAgentLogs();
+    const loggedArgs = request.agent === "codex"
+      ? args.slice(0, -1)
+      : [args[0], "…", ...args.slice(2)];
+    addCodingAgentStatus(`$ ${commandName} ${loggedArgs.join(" ")}`);
+    const process = new Deno.Command(command, {
+      args,
+      cwd: request.agent === "claude" ? agentWorkDir : undefined,
+      env: { BEARER_TOKEN: "" },
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    codingAgentProcess = process;
     codingAgentStopRequested = false;
+    addCodingAgentStatus(`プロセスを開始しました (PID: ${process.pid})。`);
+    const structuredOutput: StructuredOutputState = {
+      buffer: "",
+      rawOutput: "",
+      unparsedOutput: "",
+      finalOutput: "",
+      errorMessage: "",
+      lineNumber: 0,
+    };
+    try {
+      const [stdout, stderr, status] = await Promise.all([
+        captureCodingAgentJson(process.stdout, request.agent, structuredOutput),
+        captureOutput(process.stderr, "stderr", addCodingAgentStatus),
+        process.status,
+      ]);
+      if (codingAgentStopRequested) {
+        addCodingAgentStatus("停止しました。");
+        return {
+          cancelled: true,
+          message: "コーディングAIを停止しました。",
+          output: "コーディングAIを停止しました。",
+        };
+      }
+      if (!status.success) {
+        throw new Error(
+          structuredOutput.errorMessage || stderr || structuredOutput.unparsedOutput || stdout ||
+            `${command} が正常終了しませんでした。`,
+        );
+      }
+      await applyAgentMain(agentWorkDir, versionDir, MAX_SOURCE_CHARACTERS);
+      addCodingAgentStatus("正常終了しました。");
+      const output = structuredOutput.finalOutput || structuredOutput.unparsedOutput.trim() ||
+        "コマンド出力はありません。";
+      return {
+        message: output ||
+          `${request.agent === "codex" ? "Codex" : "Claude Code"} が更新しました。`,
+        output,
+      };
+    } finally {
+      if (codingAgentProcess === process) codingAgentProcess = undefined;
+      codingAgentStopRequested = false;
+    }
+  } finally {
+    await Deno.remove(agentWorkDir, { recursive: true }).catch(() => {});
   }
 }
 
@@ -948,12 +1001,12 @@ Deno.serve({ hostname: "127.0.0.1" }, async (request) => {
       const name = decodeURIComponent(url.pathname.slice("/api/bindings/".length));
       const handler = apiHandlers.get(name);
       if (!handler) return Response.json({ error: "APIが見つかりません。" }, { status: 404 });
-      const body = await request.json() as { args?: unknown[] };
+      const body = await readJsonBody(request, MAX_API_BODY_BYTES) as { args?: unknown[] };
       const result = await handler(...(Array.isArray(body.args) ? body.args : []));
       return Response.json({ result });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : String(error) }, {
-        status: 400,
+        status: error instanceof RequestBodyTooLargeError ? 413 : 400,
       });
     }
   }

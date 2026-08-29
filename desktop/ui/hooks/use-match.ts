@@ -8,6 +8,7 @@ export function useMatch(
   store: AppStore,
   matchOutputRef: RefObject<HTMLPreElement | null>,
   scrollChat: (force?: boolean) => void,
+  source: { saveIfDirty(): Promise<boolean> },
 ) {
   function scrollLogs() {
     void nextFrame(() => {
@@ -19,6 +20,7 @@ export function useMatch(
   async function startMatch() {
     const current = store.getState();
     if (!current.selected || current.busy) return;
+    if (!await source.saveIfDirty()) return;
     const selectedVersion = current.dashboard.versions.find((version) =>
       version.path === current.selected
     );
@@ -31,14 +33,18 @@ export function useMatch(
       viewerUrl: "",
       viewerStates: saveViewerState(current.viewerStates, current.selected, "", false),
       matchLogs: [],
+      matchRunning: true,
     });
     try {
-      const result = await callDesktop<{ message: string; viewerUrl: string }>("startMatch", [{
-        agentName: displayVersionName(selectedVersion?.name || "エルメマス"),
-        aiName: current.ai,
-        board: current.board,
-        versionDir: current.selected,
-      }]);
+      const result = await callDesktop<{ message: string; viewerUrl: string; stopped?: boolean }>(
+        "startMatch",
+        [{
+          agentName: displayVersionName(selectedVersion?.name || "エルメマス"),
+          aiName: current.ai,
+          board: current.board,
+          versionDir: current.selected,
+        }],
+      );
       const active = store.getState();
       store.setState({
         matchStatus: result.message,
@@ -49,13 +55,27 @@ export function useMatch(
           result.viewerUrl,
           active.viewerOpen,
         ),
-        matchRunning: true,
+        matchRunning: !result.stopped,
       });
     } catch (error) {
       store.setState({ matchStatus: `エラー: ${errorMessage(error)}` });
     } finally {
       store.setState({ busy: false });
       scrollLogs();
+    }
+  }
+
+  async function stopMatch() {
+    const current = store.getState();
+    if (!current.matchRunning || current.matchStopping) return;
+    store.setState({ matchStopping: true, matchStatus: "対戦を停止しています…" });
+    try {
+      const result = await callDesktop<{ message: string }>("stopMatch");
+      store.setState({ matchStatus: result.message });
+    } catch (error) {
+      store.setState({ matchStatus: `エラー: ${errorMessage(error)}` });
+    } finally {
+      store.setState({ matchStopping: false });
     }
   }
 
@@ -94,6 +114,7 @@ export function useMatch(
 
   return {
     startMatch,
+    stopMatch,
     openViewer,
     closeViewer,
     scrollLogs,

@@ -26,6 +26,8 @@ export type AppState = {
   codingAgentResult: { versionDir: string; text: string } | null;
   matchLogs: string[];
   source: string;
+  savedSource: string;
+  sourceDirty: boolean;
   sourceStatus: string;
   idea: string;
   status: string;
@@ -41,6 +43,7 @@ export type AppState = {
   busy: boolean;
   codingAgentRunning: boolean;
   stopping: boolean;
+  matchStopping: boolean;
 };
 
 export type AppStore = StoreApi<AppState>;
@@ -79,6 +82,8 @@ function initialState(): AppState {
     codingAgentResult: null,
     matchLogs: [],
     source: "",
+    savedSource: "",
+    sourceDirty: false,
     sourceStatus: "",
     idea: "",
     status: "",
@@ -94,6 +99,7 @@ function initialState(): AppState {
     busy: false,
     codingAgentRunning: false,
     stopping: false,
+    matchStopping: false,
   };
 }
 

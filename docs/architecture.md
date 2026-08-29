@@ -82,6 +82,7 @@ HTTP経由では次をすべて満たす必要があります。
 - Originがある場合はリクエストURLと同一オリジン
 - `x-kakomi-api-token` が起動時に生成した値と一致
 - `Content-Type` が `application/json`
+- JSON本文が12 MiB以下
 
 ## バージョン管理
 
@@ -117,12 +118,15 @@ HTTP経由では次をすべて満たす必要があります。
 チャット欄をsandbox付きiframeへ切り替え、検証済みの `https://kakomimasu.com/game`
 だけを開始URLとして表示します。
 
+対戦は画面から途中停止できます。停止要求後も終了しない場合は3秒後に強制停止します。対戦中は実行対象の版を
+名前変更、複製、削除できません。
+
 ## コーディングAI
 
 改善依頼ではCodexまたはClaude Codeを子プロセスとして起動します。
 
 - 作業対象は選択中のバージョン
-- 編集対象は `main.ts` のみ
+- AIは一時作業フォルダ内で実行し、正常終了時に通常ファイルの `main.ts` だけを選択中の版へ反映
 - Web検索とブラウザを禁止
 - 実装後に `deno check main.ts` を要求
 - CLIの構造化イベントを画面用ログへ変換
@@ -150,7 +154,9 @@ HTTP経由では次をすべて満たす必要があります。
 
 - `test/version_manager_test.ts`: ファイル境界、連番、名前変更、削除
 - `test/chat_history_test.ts`: 入力検証、保存、破損時の復旧
+- `test/agent_workspace_test.ts`: コーディングAIの一時作業フォルダと反映対象
 - `test/http_security_test.ts`: ホスト、Origin、APIトークン
+- `test/request_body_test.ts`: ローカルAPIのJSON本文サイズ上限
 - `test/run_script_test.ts`: `.env` の有無と古いBashでの起動
 - `test/main_test.ts`: 初期AIの公開動作
 - `test/app_paths_test.ts`: 配布版の作業フォルダと同梱テンプレートの展開
