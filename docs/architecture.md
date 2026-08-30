@@ -6,6 +6,9 @@
 Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はReact、CSS、TypeScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
 / Claude Code / OpenCodeの起動を担当します。
 
+開発、テスト、画面生成、配布ビルドはDenoだけで実行します。React、Monaco Editorなどのnpmパッケージも
+Denoのキャッシュから直接解決するため、Node.js、npmコマンド、`node_modules/` は必要ありません。
+
 ```mermaid
 flowchart LR
   Launcher[run.sh / run.bat] --> Bundle[Deno bundle / dist]

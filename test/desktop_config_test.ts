@@ -2,6 +2,7 @@ import { assertEquals, assertFalse, assertRejects, assertStringIncludes } from "
 
 Deno.test("デスクトップアプリはChromiumを内蔵する", async () => {
   const config = JSON.parse(await Deno.readTextFile("deno.json"));
+  assertEquals(config.nodeModulesDir, "none");
   assertEquals(config.desktop?.backend, "cef");
 });
 
@@ -28,6 +29,9 @@ Deno.test("画面はReactとDenoのバンドラーだけで起動する", async 
   assertStringIncludes(config.imports["react-dom"], "19.2");
   assertStringIncludes(config.imports["monaco-editor"], "0.56");
   assertStringIncludes(config.tasks["ui:build"], "scripts/build_ui.ts");
+  assertFalse(JSON.stringify(config.tasks).includes("node "));
+  assertFalse(JSON.stringify(config.tasks).includes("npm "));
+  assertFalse(JSON.stringify(config.tasks).includes("npx "));
   assertStringIncludes(config.tasks.desktop, "deno task ui:build");
   assertStringIncludes(config.tasks.desktop, "desktop/app.ts");
   assertEquals(config.compile.include, ["dist", "template"]);

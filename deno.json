@@ -1,5 +1,5 @@
 {
-  "nodeModulesDir": "auto",
+  "nodeModulesDir": "none",
   "exclude": ["dist"],
   "desktop": {
     "backend": "cef"

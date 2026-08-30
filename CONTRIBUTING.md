@@ -10,6 +10,9 @@
 - Git
 - デスクトップアプリの改善依頼を確認する場合はCodex CLI、Claude Code CLI、OpenCodeのいずれか
 
+Node.jsやnpmコマンドは不要です。ReactなどのnpmパッケージはDenoが自身のキャッシュで解決し、
+`node_modules/` は作りません。
+
 セットアップ:
 
 ```sh
