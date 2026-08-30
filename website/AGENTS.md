@@ -1,10 +1,10 @@
 # Website instructions
 
-このディレクトリは、Astroで構築してGitHub Pagesへ配置する静的な紹介サイトです。
+このディレクトリは、Lumeで構築してGitHub Pagesへ配置する静的な紹介サイトです。
 
 ## 実装ルール
 
-- ページはAstroコンポーネントへ分割し、クライアントJavaScriptは必要最小限にする。
+- ページはVentoテンプレートへ分割し、クライアントJavaScriptは必要最小限にする。
 - スタイルはTailwind CSSのユーティリティクラスを優先する。
 - 既存の日本語のトーン、グレー基調のヘッダーとフッター、囲みコードのブランド表現を維持する。
 - モバイル幅でも横スクロール、文字切れ、操作不能が起きないようにする。
@@ -17,5 +17,5 @@
 
 - `deno task website:build`
 - `deno task website:check`
-- `deno fmt --check website/AGENTS.md website/astro.config.mjs website/package.json website/src`
+- `deno fmt --check website/AGENTS.md website/_config.ts website/deno.json website/src`
 - レイアウト変更時はデスクトップ幅とモバイル幅の両方をブラウザで確認する。

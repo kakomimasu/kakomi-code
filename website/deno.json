@@ -1,0 +1,64 @@
+{
+  "imports": {
+    "lume/": "https://cdn.jsdelivr.net/gh/lumeland/lume@3.3.1/"
+  },
+  "lock": false,
+  "compilerOptions": {
+    "types": ["lume/types.ts"]
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "tasks": {
+    "build": {
+      "description": "Build the website for production",
+      "command": "deno task lume"
+    },
+    "serve": {
+      "description": "Run the website development server",
+      "command": "deno task lume -s"
+    },
+    "check": {
+      "description": "Check the website source",
+      "command": "deno fmt --check && deno lint && deno check _config.ts"
+    },
+    "lume": {
+      "description": "Run Lume",
+      "command": "deno run -P=lume lume/cli.ts"
+    }
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-import-prefix"]
+    },
+    "plugins": [
+      "https://cdn.jsdelivr.net/gh/lumeland/lume@3.3.1/lint.ts"
+    ]
+  },
+  "unstable": ["temporal", "fmt-component"],
+  "permissions": {
+    "lume": {
+      "read": true,
+      "write": true,
+      "import": [
+        "cdn.jsdelivr.net:443",
+        "jsr.io:443",
+        "deno.land:443",
+        "esm.sh:443"
+      ],
+      "net": [
+        "0.0.0.0",
+        "jsr.io:443",
+        "cdn.jsdelivr.net:443",
+        "data.jsdelivr.com:443",
+        "registry.npmjs.org:443"
+      ],
+      "env": true,
+      "run": true,
+      "ffi": true,
+      "sys": true
+    }
+  }
+}

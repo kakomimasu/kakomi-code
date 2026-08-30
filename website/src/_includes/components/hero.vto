@@ -1,8 +1,3 @@
----
-const base = import.meta.env.BASE_URL;
-const asset = (path: string) => `${base.replace(/\/$/, "")}/${path}`;
----
-
 <section
   class="hero-background page-gutter grid min-h-[630px] grid-cols-[minmax(330px,.72fr)_minmax(0,1.28fr)] items-center gap-[54px] overflow-hidden max-[760px]:min-h-0 max-[760px]:grid-cols-1 max-[760px]:gap-12 max-[760px]:py-[72px] max-[760px]:pt-[82px]"
   aria-labelledby="hero-title"
@@ -14,21 +9,21 @@ const asset = (path: string) => `${base.replace(/\/$/, "")}/${path}`;
     >
       <img
         class="size-12 rounded-[11px] shadow-[0_4px_14px_#30383d24]"
-        src={asset("app-icon.png")}
+        src="/app-icon.png"
         alt=""
         width="48"
         height="48"
-      />
+      >
       <span>囲みコード</span>
     </div>
     <h1
       id="hero-title"
       class="m-0 text-[45px] leading-[1.14] font-[750] tracking-[-.055em] max-[410px]:text-[40px]"
     >
-      アイデアひとつで<br /><em class="text-accent-dark not-italic">競技に参加しよう。</em>
+      アイデアひとつで<br><em class="text-accent-dark not-italic">競技に参加しよう。</em>
     </h1>
     <p class="my-[26px] mb-[30px] text-[17px]">
-      囲みマスを始める人のための AIコーディングツール。<br />あなたの作戦をすぐ対戦へ。
+      囲みマスを始める人のための AIコーディングツール。<br>あなたの作戦をすぐ対戦へ。
     </p>
     <a
       class="inline-flex min-h-[46px] items-center rounded-[7px] bg-accent-dark px-5 py-2.5 text-sm font-[750] text-white shadow-[0_7px_18px_#b8531c2e] transition-[background,transform] duration-180 hover:-translate-y-px hover:bg-ink"
@@ -38,10 +33,12 @@ const asset = (path: string) => `${base.replace(/\/$/, "")}/${path}`;
       class="mt-5 flex w-fit items-center gap-2.5 text-[13px] text-muted transition-colors duration-180 hover:text-ink"
       href="https://deno.com/"
     >
-      <img class="size-[34px] shrink-0" src={asset("deno-icon.svg")} alt="" width="34" height="34" />
+      <img class="size-[34px] shrink-0" src="/deno-icon.svg" alt="" width="34"
+        height="34">
       <span>必要なのは <strong class="text-accent-dark">Deno</strong> だけ。</span>
     </a>
-    <nav class="mt-[18px] flex gap-[22px] text-[13px] font-bold" aria-label="関連リンク">
+    <nav class="mt-[18px] flex gap-[22px] text-[13px] font-bold"
+      aria-label="関連リンク">
       <a
         class="border-b border-accent-line transition-[color,border-color] duration-180 hover:border-accent-dark hover:text-accent-dark"
         href="https://kakomimasu.com/"
@@ -57,10 +54,10 @@ const asset = (path: string) => `${base.replace(/\/$/, "")}/${path}`;
   >
     <img
       class="block h-auto w-full rounded-[14px] border border-[#ddd6d1] shadow-[0_26px_70px_#30383d26,0_8px_24px_#eb7c2d1c] max-[760px]:rounded-lg"
-      src={asset("kakomi-code-to-match.png")}
+      src="/kakomi-code-to-match.png"
       alt="囲みコードでAIと作戦を改善し、囲みマスで対戦結果を確認している画面"
       width="1535"
       height="1024"
-    />
+    >
   </figure>
 </section>

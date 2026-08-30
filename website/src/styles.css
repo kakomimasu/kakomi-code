@@ -20,7 +20,8 @@
 
 @utility hero-background {
   background:
-    radial-gradient(circle at 79% 45%, var(--color-accent-soft) 0 18%, transparent 52%),
+    radial-gradient(circle at 79% 45%, var(--color-accent-soft) 0 18%,
+    transparent 52%),
     var(--color-paper);
 }
 

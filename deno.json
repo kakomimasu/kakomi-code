@@ -16,10 +16,9 @@
   "tasks": {
     "ui:build": "deno task build",
     "ui:dev": "deno task dev",
-    "website:install": "npm --prefix website ci",
-    "website:build": "npm --prefix website run build",
-    "website:check": "npm --prefix website run check",
-    "website:dev": "npm --prefix website run dev",
+    "website:build": "deno task --config website/deno.json --cwd website build",
+    "website:check": "deno task --config website/deno.json --cwd website check",
+    "website:dev": "deno task --config website/deno.json --cwd website serve",
     "desktop": "deno desktop --output Kakomimasu --icon desktop/assets/app-icon.png --allow-read --allow-write --allow-env --allow-net --allow-run .",
     "desktop:mac": "deno desktop --output Kakomimasu --icon desktop/assets/app-icon.icns --allow-read --allow-write --allow-env --allow-net --allow-run .",
     "desktop:windows": "deno desktop --output Kakomimasu --icon desktop/assets/app-icon.ico --allow-read --allow-write --allow-env --allow-net --allow-run .",
@@ -27,9 +26,9 @@
     "check": "deno check server.ts vite.config.ts desktop/app.ts desktop/application_menu.ts desktop/agent_workspace.ts desktop/coding_agent.ts desktop/ui.tsx desktop/version_manager.ts desktop/chat_history.ts desktop/http_security.ts desktop/request_body.ts desktop/static_assets.ts desktop/terminal_text.ts desktop/window_geometry.ts scripts/build_release.ts",
     "test": "deno test --allow-env --allow-read --allow-write --allow-run=bash test",
     "lint": "deno lint server.ts vite.config.ts desktop/app.ts desktop/application_menu.ts desktop/agent_workspace.ts desktop/coding_agent.ts desktop/chat_history.ts desktop/http_security.ts desktop/request_body.ts desktop/static_assets.ts desktop/terminal_text.ts desktop/ui desktop/ui.tsx desktop/version_manager.ts desktop/window_geometry.ts scripts template/main.ts test",
-    "fmt:check": "deno fmt --check AGENTS.md CONTRIBUTING.md README.md SECURITY.md deno.json package.json index.html server.ts vite.config.ts desktop/application_menu.ts desktop/agent_workspace.ts desktop/app.ts desktop/chat_history.ts desktop/coding_agent.ts desktop/http_security.ts desktop/request_body.ts desktop/static_assets.ts desktop/style.css desktop/terminal_text.ts desktop/ui desktop/ui.tsx desktop/version_manager.ts desktop/window_geometry.ts docs scripts template test website/AGENTS.md website/astro.config.mjs website/package.json website/src",
+    "fmt:check": "deno fmt --check AGENTS.md CONTRIBUTING.md README.md SECURITY.md deno.json package.json index.html server.ts vite.config.ts desktop/application_menu.ts desktop/agent_workspace.ts desktop/app.ts desktop/chat_history.ts desktop/coding_agent.ts desktop/http_security.ts desktop/request_body.ts desktop/static_assets.ts desktop/style.css desktop/terminal_text.ts desktop/ui desktop/ui.tsx desktop/version_manager.ts desktop/window_geometry.ts docs scripts template test website/AGENTS.md website/_config.ts website/deno.json website/src",
     "verify:desktop": "deno task fmt:check && deno task lint && deno task check && deno task --frozen ui:build && deno task test",
-    "verify:website": "deno task website:install && deno task website:check && deno task website:build",
+    "verify:website": "deno task website:check && deno task website:build",
     "verify": "deno task verify:desktop && deno task verify:website"
   },
   "fmt": {
