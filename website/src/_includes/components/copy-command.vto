@@ -1,0 +1,58 @@
+<div
+  class="mt-2.5 flex w-[min(100%,600px)] items-stretch overflow-hidden rounded-[7px] border border-accent-line bg-cream"
+>
+  <code
+    class="m-0 min-w-0 flex-1 [overflow-wrap:anywhere] bg-cream px-[11px] py-[9px] font-mono text-[13px] leading-normal whitespace-normal text-accent-dark"
+    id="clone-command"
+  >git clone https://github.com/kakomimasu/kakomi-code.git</code>
+  <button
+    class="shrink-0 cursor-pointer border-0 border-l border-solid border-accent-line bg-accent-dark px-[13px] text-xs font-[750] text-white hover:bg-ink focus-visible:-outline-offset-4"
+    type="button"
+    data-copy-target="clone-command"
+    aria-label="git clone コマンドをコピー"
+  >
+    <span class="copy-label">コピー</span>
+  </button>
+</div>
+<span class="mt-1 block min-h-[1.4em] text-[11px] text-muted"
+  aria-live="polite"></span>
+
+<script>
+document.querySelectorAll("[data-copy-target]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const targetId = button.dataset.copyTarget;
+    const target = targetId ? document.getElementById(targetId) : null;
+    const status = button.closest("div")?.nextElementSibling;
+    const label = button.querySelector(".copy-label");
+    if (!target || !status || !label) return;
+
+    try {
+      const text = target.textContent ?? "";
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("copy failed");
+      }
+      label.textContent = "コピー済み";
+      status.textContent = "コマンドをコピーしました。";
+      window.setTimeout(() => {
+        label.textContent = "コピー";
+        status.textContent = "";
+      }, 1800);
+    } catch {
+      status.textContent = [
+        "コピーできませんでした。",
+        "コマンドを選択してコピーしてください。",
+      ].join("");
+    }
+  });
+});
+</script>

@@ -26,17 +26,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-        working-directory: website
+          deno-version: v2.x
       - name: Build website
-        run: npm run build
+        run: deno task build
         working-directory: website
       - name: Configure Pages
         uses: actions/configure-pages@v6
