@@ -195,6 +195,7 @@ export function codingAgentCommand(
   if (agent === "codex") {
     const args = [
       "exec",
+      "--skip-git-repo-check",
       "--json",
       "--sandbox",
       "workspace-write",

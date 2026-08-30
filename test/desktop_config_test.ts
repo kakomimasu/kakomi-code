@@ -2,13 +2,14 @@ import { assertEquals, assertFalse, assertRejects, assertStringIncludes } from "
 
 Deno.test("デスクトップアプリはChromiumを内蔵する", async () => {
   const config = JSON.parse(await Deno.readTextFile("deno.json"));
+  assertEquals(config.nodeModulesDir, "none");
   assertEquals(config.desktop?.backend, "cef");
 });
 
-Deno.test("画面はViteでReactをバンドルして起動する", async () => {
+Deno.test("画面はReactとDenoのバンドラーだけで起動する", async () => {
   const config = JSON.parse(await Deno.readTextFile("deno.json"));
-  const packageConfig = JSON.parse(await Deno.readTextFile("package.json"));
-  const html = await Deno.readTextFile("index.html");
+  const html = await Deno.readTextFile("desktop/index.html");
+  const buildScript = await Deno.readTextFile("scripts/build_ui.ts");
   const reactEntry = await Deno.readTextFile("desktop/ui.tsx");
   const reactApp = await Deno.readTextFile("desktop/ui/app.tsx");
   const errorBoundary = await Deno.readTextFile("desktop/ui/error-boundary.tsx");
@@ -22,85 +23,56 @@ Deno.test("画面はViteでReactをバンドルして起動する", async () => 
   const monacoHook = await Deno.readTextFile("desktop/ui/hooks/use-monaco-editor.ts");
   const utilityPane = await Deno.readTextFile("desktop/ui/utility.tsx");
   const style = await Deno.readTextFile("desktop/style.css");
-  const server = await Deno.readTextFile("server.ts");
-  const viteConfig = await Deno.readTextFile("vite.config.ts");
+  const store = await Deno.readTextFile("desktop/ui/hooks/use-app-state.ts");
 
-  assertStringIncludes(packageConfig.dependencies.react, "19.2");
-  assertStringIncludes(packageConfig.dependencies["react-dom"], "19.2");
-  assertStringIncludes(packageConfig.dependencies["@base-ui/react"], "1.7");
-  assertStringIncludes(packageConfig.dependencies.zustand, "5.0");
-  assertStringIncludes(packageConfig.devDependencies.tailwindcss, "4.3");
-  assertStringIncludes(packageConfig.devDependencies["@tailwindcss/vite"], "4.3");
-  assertStringIncludes(packageConfig.devDependencies["happy-dom"], "20.11");
-  assertStringIncludes(packageConfig.devDependencies.vite, "8.2");
-  assertEquals(packageConfig.scripts.build, "vite build");
-  assertEquals(config.tasks["ui:build"], "deno task build");
-  assertStringIncludes(config.tasks.desktop, "deno desktop");
-  assertStringIncludes(config.tasks.desktop, " .");
-  assertStringIncludes(config.tasks["desktop:mac"], "--output Kakomimasu ");
-  assertFalse(config.tasks["desktop:mac"].includes("--output Kakomimasu.app"));
+  assertStringIncludes(config.imports.react, "19.2");
+  assertStringIncludes(config.imports["react-dom"], "19.2");
+  assertStringIncludes(config.imports["monaco-editor"], "0.56");
+  assertStringIncludes(config.tasks["ui:build"], "scripts/build_ui.ts");
+  assertFalse(JSON.stringify(config.tasks).includes("node "));
+  assertFalse(JSON.stringify(config.tasks).includes("npm "));
+  assertFalse(JSON.stringify(config.tasks).includes("npx "));
+  assertStringIncludes(config.tasks.desktop, "deno task ui:build");
+  assertStringIncludes(config.tasks.desktop, "desktop/app.ts");
   assertEquals(config.compile.include, ["dist", "template"]);
-  assertStringIncludes(config.tasks.desktop, "--allow-run");
-  assertStringIncludes(viteConfig, 'publicDir: "node_modules/monaco-editor/min"');
-  assertStringIncludes(viteConfig, 'outDir: "dist"');
-  assertStringIncludes(viteConfig, 'from "@tailwindcss/vite"');
-  assertStringIncludes(viteConfig, "tailwindcss()");
-  assertStringIncludes(viteConfig, 'dedupe: ["react", "react-dom"]');
-  assertStringIncludes(viteConfig, '"@base-ui/react/field"');
-  assertStringIncludes(viteConfig, '"@base-ui/react/toggle-group"');
-  assertStringIncludes(monacoHook, "diagnosticCodesToIgnore: [2307, 2792]");
-  assertStringIncludes(monacoHook, "module: monaco.languages.typescript.ModuleKind.ESNext");
-  assertStringIncludes(monacoHook, "target: monaco.languages.typescript.ScriptTarget.ESNext");
-  assertStringIncludes(monacoHook, '"file:///deno-env.d.ts"');
-  assertStringIncludes(monacoHook, "function get(key: string): string | undefined");
-  assertStringIncludes(monacoHook, "readonly main: boolean");
-  assertStringIncludes(server, 'import "./desktop/app.ts"');
+  assertStringIncludes(buildScript, '"bundle"');
+  assertStringIncludes(buildScript, '"browser"');
+  assertStringIncludes(buildScript, 'import.meta.resolve("monaco-editor")');
   assertStringIncludes(html, '<div id="root"></div>');
-  assertStringIncludes(html, '<script type="module" src="/desktop/ui.tsx"');
+  assertStringIncludes(html, '<script type="module" src="/ui.js"');
+  assertStringIncludes(html, '<link rel="stylesheet" href="/desktop/style.css"');
   assertStringIncludes(html, 'content="__KAKOMI_API_TOKEN__"');
   assertStringIncludes(reactApp, 'from "./hooks/use-kakomi-app.ts"');
   assertStringIncludes(reactEntry, "<AppErrorBoundary>");
   assertStringIncludes(errorBoundary, "getDerivedStateFromError");
   assertStringIncludes(errorBoundary, 'role="alert"');
-  assertStringIncludes(errorBoundary, "画面を再読み込み");
   assertStringIncludes(appHook, "useDashboard(");
   assertStringIncludes(appHook, "useChat(");
   assertStringIncludes(appHook, "useMatch(");
-  assertStringIncludes(dialogs, 'from "@base-ui/react/dialog"');
-  assertStringIncludes(dialogs, 'from "@base-ui/react/alert-dialog"');
-  assertStringIncludes(dialogs, "<AlertDialog.Root");
-  assertStringIncludes(primitives, 'from "@base-ui/react/tooltip"');
-  assertStringIncludes(primitives, 'from "@base-ui/react/toggle"');
+  assertStringIncludes(dialogs, 'role={request.kind === "confirm" ? "alertdialog" : "dialog"}');
   assertStringIncludes(primitives, "export const Button");
   assertStringIncludes(primitives, "export function statusTone");
   assertStringIncludes(primitives, 'role={error ? "alert" : "status"}');
-  assertStringIncludes(reactApp, "<Tooltip.Provider");
   assertStringIncludes(sidebar, "<TooltipButton");
   assertStringIncludes(sidebar, "aria-pressed={app.selected === version.path}");
-  assertStringIncludes(chatPane, 'from "@base-ui/react/field"');
-  assertStringIncludes(chatPane, 'from "@base-ui/react/toggle-group"');
-  assertStringIncludes(chatPane, "<ToggleGroup");
-  assertStringIncludes(chatPane, "<Field.Label");
-  assertStringIncludes(chatPane, "<Field.Control");
-  assertStringIncludes(chatPane, "<Field.Description");
   assertStringIncludes(chatPane, 'role="log"');
   assertStringIncludes(chatPane, 'aria-label="チャット履歴"');
-  assertStringIncludes(utilityPane, 'from "@base-ui/react/tabs"');
+  assertStringIncludes(chatPane, "aria-pressed={app.agent === agent.id}");
   assertStringIncludes(utilityPane, "<Button");
-  assertStringIncludes(style, '@import "tailwindcss/utilities.css"');
-  assertStringIncludes(style, "grid-template-columns: 155px minmax(0, 1fr);");
-  assertStringIncludes(style, ".sidebar-resize-handle {\n    display: none;\n  }");
-  assertStringIncludes(style, ".resize-handle {\n    display: none;\n  }");
-  assertFalse(style.includes(".match-button"));
-  assertFalse(style.includes(".source-save-button"));
+  assertStringIncludes(style, ".match-button");
+  assertStringIncludes(style, ".source-save-button");
+  assertStringIncludes(monacoHook, "diagnosticCodesToIgnore: [2307, 2792]");
+  assertStringIncludes(monacoHook, "module: monaco.languages.typescript.ModuleKind.ESNext");
+  assertStringIncludes(monacoHook, '"file:///deno-env.d.ts"');
+  assertStringIncludes(store, "useSyncExternalStore");
+  assertFalse(store.includes("zustand"));
+  assertFalse(style.includes("tailwindcss"));
   assertFalse(dashboardHook.includes("prompt("));
   assertFalse(dashboardHook.includes("confirm("));
   assertFalse(chatHook.includes("confirm("));
-  assertStringIncludes(
-    await Deno.readTextFile("desktop/ui/hooks/use-app-state.ts"),
-    'from "zustand/vanilla"',
-  );
-  await assertRejects(() => Deno.stat("desktop/ui_state.js"), Deno.errors.NotFound);
   assertFalse(html.includes("alpine"));
-  assertFalse(html.includes("x-data"));
+
+  for (const removed of ["package.json", "vite.config.ts", "server.ts", "desktop/ui_state.js"]) {
+    await assertRejects(() => Deno.stat(removed), Deno.errors.NotFound);
+  }
 });

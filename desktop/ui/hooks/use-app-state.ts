@@ -1,6 +1,4 @@
-import { useRef } from "react";
-import { useStore } from "zustand";
-import { createStore, type StoreApi } from "zustand/vanilla";
+import { useRef, useSyncExternalStore } from "react";
 import type {
   CodingAgent,
   CodingLogEntry,
@@ -46,7 +44,13 @@ export type AppState = {
   matchStopping: boolean;
 };
 
-export type AppStore = StoreApi<AppState>;
+type StateUpdate = Partial<AppState> | ((state: AppState) => Partial<AppState>);
+
+export type AppStore = {
+  getState(): AppState;
+  setState(update: StateUpdate): void;
+  subscribe(listener: (state: AppState) => void): () => void;
+};
 
 function savedAgent(): CodingAgent {
   const saved = localStorage.getItem(SAVED_AGENT_KEY);
@@ -108,14 +112,27 @@ function initialState(): AppState {
 }
 
 export function createAppStore(): AppStore {
-  return createStore<AppState>()(() => initialState());
+  let state = initialState();
+  const listeners = new Set<(state: AppState) => void>();
+  return {
+    getState: () => state,
+    setState(update) {
+      const patch = typeof update === "function" ? update(state) : update;
+      state = { ...state, ...patch };
+      for (const listener of listeners) listener(state);
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
 }
 
 export function useAppState() {
   const storeRef = useRef<AppStore | null>(null);
   if (!storeRef.current) storeRef.current = createAppStore();
   const store = storeRef.current;
-  const state = useStore(store);
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
   return { state, store };
 }
 

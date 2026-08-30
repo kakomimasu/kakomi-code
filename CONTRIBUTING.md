@@ -10,6 +10,9 @@
 - Git
 - デスクトップアプリの改善依頼を確認する場合はCodex CLI、Claude Code CLI、OpenCodeのいずれか
 
+Node.jsやnpmコマンドは不要です。ReactなどのnpmパッケージはDenoが自身のキャッシュで解決し、
+`node_modules/` は作りません。
+
 セットアップ:
 
 ```sh
@@ -19,12 +22,8 @@ cd kakomi-code
 
 接続先などを変更する場合だけ `.env` を作成してください。認証トークンをコミットしないでください。
 
-依存関係を準備してReact画面だけをブラウザで確認する場合は、Viteの開発サーバーを起動できます。
-
-```sh
-deno install
-deno task ui:dev
-```
+React画面の依存関係はDenoが準備します。画面の生成だけを確認する場合は `deno task ui:build`
+を実行してください。
 
 ## 起動
 
@@ -40,13 +39,11 @@ Windows:
 run.bat
 ```
 
-Deno DesktopのVite自動検出を直接確認する場合は、次のコマンドを実行します。Viteビルドと既存の
-バックエンドをまとめてデスクトップアプリにします。囲みコードの全機能を使うにはファイルや子プロセスなどの
-権限も必要なため、実際の起動には必要な権限、OSに合うアイコン、出力形式を指定する上記のスクリプトを
-使ってください。
+Deno Desktopを直接確認する場合は、次のコマンドを実行します。React画面のバンドルと既存の
+バックエンドをまとめて起動します。
 
 ```sh
-deno desktop .
+deno task desktop
 ```
 
 ## 検証

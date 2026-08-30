@@ -6,12 +6,14 @@
 Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はReact、CSS、TypeScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
 / Claude Code / OpenCodeの起動を担当します。
 
+開発、テスト、画面生成、配布ビルドはDenoだけで実行します。React、Monaco Editorなどのnpmパッケージも
+Denoのキャッシュから直接解決するため、Node.js、npmコマンド、`node_modules/` は必要ありません。
+
 ```mermaid
 flowchart LR
-  Launcher[run.sh / run.bat] --> Vite[Vite build / dist]
-  Release[GitHub Releasesの配布アプリ] --> Entry[server.ts]
-  Vite --> Entry
-  Entry --> App[desktop/app.ts]
+  Launcher[run.sh / run.bat] --> Bundle[Deno bundle / dist]
+  Release[GitHub Releasesの配布アプリ] --> App[desktop/app.ts]
+  Bundle --> App
   App --> Window[CEFのBrowserWindow]
   Window --> UI[dist/index.html / assets]
   UI --> LocalAPI[127.0.0.1 のローカルAPI]
@@ -26,36 +28,36 @@ flowchart LR
 
 ## コンポーネント
 
-| 場所                             | 役割                                                                   |
-| -------------------------------- | ---------------------------------------------------------------------- |
-| `run.sh`, `run.bat`              | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する            |
-| `scripts/build_release.ts`       | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする                |
-| `.github/workflows/release.yml`  | タグから各OS向け配布ファイルとGitHub Releaseを作る                     |
-| `package.json`, `vite.config.ts` | React画面のVite開発サーバーと `dist/` ビルドを設定する                 |
-| `index.html`                     | ViteのHTMLエントリーとAPIトークンの埋め込み先                          |
-| `server.ts`                      | Vite自動検出から既存のDeno Desktopバックエンドを起動する               |
-| `desktop/app.ts`                 | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理        |
-| `desktop/application_menu.ts`    | ネイティブメニューと終了ショートカットを構成する                       |
-| `desktop/app_paths.ts`           | ソース版・配布版の作業フォルダとテンプレートを解決する                 |
-| `desktop/command_resolver.ts`    | Deno、Codex、Claude Code、OpenCodeの実行ファイルをユーザー環境から探す |
-| `desktop/coding_agent.ts`        | コーディングAIごとの起動引数とOpenCodeの実行時権限を組み立てる         |
-| `desktop/ui.tsx`, `desktop/ui/`  | Reactの起動処理、画面コンポーネント、状態管理用hooks                   |
-| `desktop/version_manager.ts`     | バージョンの初期化、一覧、作成、検証、名前変更、削除                   |
-| `desktop/chat_history.ts`        | チャット履歴の検証と原子的な保存                                       |
-| `desktop/http_security.ts`       | ループバック・同一オリジン・APIトークンの検証                          |
-| `desktop/static_assets.ts`       | `dist/` 内の安全なパスとContent-Typeを検証                             |
-| `desktop/terminal_text.ts`       | 端末出力からANSI制御シーケンスを除去                                   |
-| `desktop/window_geometry.ts`     | 利用可能な画面領域とウィンドウサイズの検証                             |
-| `template/main.ts`               | 新しいAIの初期コードと囲みマスクライアントの設定                       |
-| `website/`                       | GitHub Pagesで公開する、アプリとは独立した静的サイト                   |
+| 場所                            | 役割                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| `run.sh`, `run.bat`             | `.env` の有無を判定し、OSに合うDeno Desktopタスクを起動する            |
+| `scripts/build_release.ts`      | OS・CPUに合う配布形式を検証し、Deno Desktopでビルドする                |
+| `.github/workflows/release.yml` | タグから各OS向け配布ファイルとGitHub Releaseを作る                     |
+| `scripts/build_ui.ts`           | React画面、通常CSS、Monaco Editorを `dist/` へまとめる                 |
+| `desktop/index.html`            | React画面のHTMLとAPIトークンの埋め込み先                               |
+| `desktop/app.ts`                | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理        |
+| `desktop/application_menu.ts`   | ネイティブメニューと終了ショートカットを構成する                       |
+| `desktop/app_paths.ts`          | ソース版・配布版の作業フォルダとテンプレートを解決する                 |
+| `desktop/command_resolver.ts`   | Deno、Codex、Claude Code、OpenCodeの実行ファイルをユーザー環境から探す |
+| `desktop/coding_agent.ts`       | コーディングAIごとの起動引数とOpenCodeの実行時権限を組み立てる         |
+| `desktop/ui.tsx`, `desktop/ui/` | Reactの起動処理、画面コンポーネント、状態管理用hooks                   |
+| `desktop/version_manager.ts`    | バージョンの初期化、一覧、作成、検証、名前変更、削除                   |
+| `desktop/chat_history.ts`       | チャット履歴の検証と原子的な保存                                       |
+| `desktop/http_security.ts`      | ループバック・同一オリジン・APIトークンの検証                          |
+| `desktop/static_assets.ts`      | `dist/` 内の安全なパスとContent-Typeを検証                             |
+| `desktop/terminal_text.ts`      | 端末出力からANSI制御シーケンスを除去                                   |
+| `desktop/window_geometry.ts`    | 利用可能な画面領域とウィンドウサイズの検証                             |
+| `template/main.ts`              | 新しいAIの初期コードと囲みマスクライアントの設定                       |
+| `website/`                      | GitHub Pagesで公開する、アプリとは独立した静的サイト                   |
 
 ## 起動フロー
 
 1. ソース版では、`run.sh` または `run.bat` がDenoの存在を確認します。
 2. `.env` がある場合だけ `--env-file=.env` をDenoへ渡します。
-3. Viteがルートの `index.html` と `desktop/ui.tsx` から `dist/` を作ります。
-4. `deno desktop .` がViteと `server.ts` を自動検出し、`dist/` と既存バックエンドを同梱します。
-   `deno.json` の `compile` に追加ファイルを定義し、起動タスクで親アプリの権限を指定します。
+3. Denoのバンドラーが `desktop/ui.tsx` からJavaScriptを生成し、HTML、通常CSS、画像、Monaco Editorと
+   合わせて `dist/` を作ります。
+4. `deno desktop desktop/app.ts` が `dist/` と既存バックエンドを同梱します。 `deno.json` の
+   `compile` に追加ファイルを定義し、起動タスクで親アプリの権限を指定します。
    `desktop.backend: "cef"` により各OS向けChromiumもアプリへ同梱します。
 5. `desktop/app.ts` が作業フォルダを検出します。配布版では同梱テンプレートを
    `~/.kakomimasu-ai-starter/workspace/` へコピーします。
@@ -68,10 +70,11 @@ flowchart LR
 ## 画面とローカルAPI
 
 `desktop/ui/api.ts` はDeno Desktopの `bindings` を優先して呼び出し、通常のブラウザでは
-`/api/bindings/<name>` へのPOSTへフォールバックします。共有する画面状態はZustandストアで管理し、
-`desktop/ui/hooks/` のReact hooksが用途別の操作と副作用を担当します。Reactで描画する画面と Monaco
-Editorは `prefers-color-scheme` を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの
-`window.bind` とHTTP経由の両方で同じハンドラーを公開します。
+`/api/bindings/<name>` へのPOSTへフォールバックします。共有する画面状態はReactの
+`useSyncExternalStore` と小さなローカルストアで管理し、 `desktop/ui/hooks/` のReact
+hooksが用途別の操作と副作用を担当します。Reactで描画する画面と Monaco Editorは
+`prefers-color-scheme` を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの `window.bind`
+とHTTP経由の両方で同じハンドラーを公開します。
 
 `use-kakomi-app.ts`
 は画面へ渡す値を組み立て、ダッシュボード、チャット、ソースエディター、対戦、ログ取得、

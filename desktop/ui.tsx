@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client";
-import "./style.css";
 import { App } from "./ui/app.tsx";
 import { AppErrorBoundary } from "./ui/error-boundary.tsx";
 

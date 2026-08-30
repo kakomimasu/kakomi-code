@@ -1,6 +1,3 @@
-import { Field } from "@base-ui/react/field";
-import { Tabs } from "@base-ui/react/tabs";
-import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { classes } from "./common.tsx";
 import {
   appIconUrl,
@@ -10,7 +7,7 @@ import {
   opencodeLightIconUrl,
 } from "./assets.ts";
 import { ModelPicker } from "./model-picker.tsx";
-import { Button, TooltipButton, TooltipToggleButton } from "./primitives.tsx";
+import { Button, TooltipButton } from "./primitives.tsx";
 import type { AppProps, CodingLogEntry, Message } from "./types.ts";
 
 const AGENTS = [
@@ -99,22 +96,19 @@ function CodingLog({ app, log }: AppProps & { log: CodingLogEntry }) {
 
 function AgentPicker({ app }: AppProps) {
   return (
-    <ToggleGroup
+    <div
       className="agent-picker"
       aria-label="コーディングAIを選択"
-      value={[app.agent]}
-      disabled={app.busy}
-      onValueChange={(agents) => {
-        const agent = agents[0];
-        if (agent) app.selectAgent(agent);
-      }}
     >
       {AGENTS.map((agent) => (
-        <TooltipToggleButton
-          value={agent.id}
-          className={(state) => classes("agent-icon", state.pressed && "active")}
-          label={agent.label}
+        <button
+          type="button"
+          className={classes("agent-icon", app.agent === agent.id && "active")}
+          onClick={() => app.selectAgent(agent.id)}
           disabled={app.busy}
+          aria-label={agent.label}
+          aria-pressed={app.agent === agent.id}
+          title={agent.label}
           key={agent.id}
         >
           {"darkImage" in agent
@@ -125,9 +119,9 @@ function AgentPicker({ app }: AppProps) {
               </picture>
             )
             : <img src={agent.image} alt={agent.label} />}
-        </TooltipToggleButton>
+        </button>
       ))}
-    </ToggleGroup>
+    </div>
   );
 }
 
@@ -167,27 +161,24 @@ function Composer({ app }: AppProps) {
         app.improve();
       }}
     >
-      <Field.Root className="contents" disabled={app.busy}>
-        <Field.Label className="sr-only">作戦のアイデア</Field.Label>
-        <Field.Control
-          render={
-            <textarea
-              value={app.idea}
-              onChange={(event) => app.setIdea(event.target.value)}
-              placeholder="作戦のアイデアを入力…"
-              onCompositionStart={() => app.startComposition()}
-              onCompositionEnd={() => app.endComposition()}
-              onKeyDown={(event) => app.sendOnEnter(event)}
-              onKeyUp={(event) => {
-                if (event.key === "Enter") app.clearCompositionGuard();
-              }}
-            />
-          }
-        />
-        <Field.Description className="sr-only">
-          Enterで送信します。ShiftとEnterを同時に押すと改行します。
-        </Field.Description>
-      </Field.Root>
+      <label className="sr-only" htmlFor="strategy-idea">作戦のアイデア</label>
+      <textarea
+        id="strategy-idea"
+        value={app.idea}
+        onChange={(event) => app.setIdea(event.target.value)}
+        placeholder="作戦のアイデアを入力…"
+        disabled={app.busy}
+        aria-describedby="strategy-idea-description"
+        onCompositionStart={() => app.startComposition()}
+        onCompositionEnd={() => app.endComposition()}
+        onKeyDown={(event) => app.sendOnEnter(event)}
+        onKeyUp={(event) => {
+          if (event.key === "Enter") app.clearCompositionGuard();
+        }}
+      />
+      <span id="strategy-idea-description" className="sr-only">
+        Enterで送信します。ShiftとEnterを同時に押すと改行します。
+      </span>
       <div className="composer-toolbar">
         <AgentPicker app={app} />
         <ModelPicker app={app} />
@@ -210,16 +201,10 @@ function ChatFeed({ app }: AppProps) {
       onScroll={() => app.updateChatScrollState()}
     >
       {app.messages.length === 0 && (
-        <article className="mx-0 my-auto w-[min(440px,90%)] self-center px-6 py-8 text-center">
-          <img
-            className="mb-3.5 h-12 w-12 rounded-[13px] shadow-[0_5px_18px_#00000016] dark:shadow-[0_4px_16px_#00000055]"
-            src={appIconUrl}
-            alt=""
-          />
-          <h2 className="m-0 text-[24px] font-[680] tracking-[-0.025em] text-[#292927] dark:text-[#efefeb]">
-            どんな作戦にしますか？
-          </h2>
-          <p className="mx-auto mt-[9px] mb-0 text-[14px] leading-[1.65] text-[#858580] dark:text-[#b9b9b2]">
+        <article className="welcome">
+          <img src={appIconUrl} alt="" />
+          <h2>どんな作戦にしますか？</h2>
+          <p>
             アイデアを伝えると選択中のエージェントを改善します。
           </p>
         </article>
@@ -239,19 +224,18 @@ function ChatFeed({ app }: AppProps) {
 
 function ViewerPanel({ app }: AppProps) {
   return (
-    <Tabs.Panel
+    <section
       className="viewer-panel"
-      value="viewer"
-      keepMounted
+      hidden={!app.viewerOpen}
       aria-label="囲みマスの対戦画面"
     >
       {app.viewerLoading && (
-        <div className="absolute inset-0 z-[1] grid place-items-center bg-[#fbfbfa] text-[13px] text-[#777773] dark:bg-[#1b1b1a] dark:text-[#b3b3ac]">
+        <div className="viewer-loading">
           対戦画面を読み込んでいます…
         </div>
       )}
       <iframe
-        className="block h-full w-full border-0 bg-white"
+        className="viewer-frame"
         title="囲みマスの対戦画面"
         src={app.viewerOpen ? app.viewerUrl : "about:blank"}
         onLoad={() => app.setViewerLoading(false)}
@@ -259,43 +243,42 @@ function ViewerPanel({ app }: AppProps) {
         referrerPolicy="no-referrer"
         allow="fullscreen"
       />
-    </Tabs.Panel>
+    </section>
   );
 }
 
 export function ChatPane({ app }: AppProps) {
   return (
-    <Tabs.Root
+    <section
       className="chat-pane"
       id="chat-pane"
       hidden={!app.selected}
-      value={app.viewerOpen ? "viewer" : "chat"}
-      onValueChange={(value) => value === "viewer" ? app.openViewer() : app.closeViewer()}
     >
       <header className="pane-header chat-header">
-        <Tabs.List
+        <nav
           className="tab-list chat-view-tabs"
           aria-label="中央ペインを選択"
-          activateOnFocus
         >
-          <Tabs.Tab
-            className={(state) => classes("tab", state.active && "active")}
-            value="chat"
+          <button
+            type="button"
+            className={classes("tab", !app.viewerOpen && "active")}
+            onClick={() => app.closeViewer()}
           >
             チャット
-          </Tabs.Tab>
-          <Tabs.Tab
-            className={(state) => classes("tab", state.active && "active")}
-            value="viewer"
+          </button>
+          <button
+            type="button"
+            className={classes("tab", app.viewerOpen && "active")}
+            onClick={() => app.openViewer()}
             disabled={!app.viewerUrl}
           >
             対戦画面
-          </Tabs.Tab>
-        </Tabs.List>
-        <div className="flex items-center gap-2">
+          </button>
+        </nav>
+        <div className="chat-header-actions">
           {app.viewerOpen && (
             <a
-              className="text-[11px] text-[#777773] no-underline hover:text-[var(--accent)] dark:text-[#b3b3ac]"
+              className="viewer-external-link"
               href={app.viewerUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -317,11 +300,11 @@ export function ChatPane({ app }: AppProps) {
           )}
         </div>
       </header>
-      <Tabs.Panel className="strategy-panel" value="chat" keepMounted>
+      <section className="strategy-panel" hidden={app.viewerOpen}>
         <ChatFeed app={app} />
         <Composer app={app} />
-      </Tabs.Panel>
+      </section>
       <ViewerPanel app={app} />
-    </Tabs.Root>
+    </section>
   );
 }
