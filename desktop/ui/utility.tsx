@@ -1,4 +1,3 @@
-import { Tabs } from "@base-ui/react/tabs";
 import type { CSSProperties, ReactNode } from "react";
 import { classes } from "./common.tsx";
 import { Button, StatusText } from "./primitives.tsx";
@@ -96,7 +95,7 @@ function BoardPreview({ app }: AppProps) {
 function MatchPanel({ app }: AppProps) {
   const controlsDisabled = app.busy || app.matchRunning;
   return (
-    <Tabs.Panel className="tab-panel match-panel" value="match" keepMounted>
+    <section className="tab-panel match-panel" hidden={app.tab !== "match"}>
       <div className="match-card">
         <div className="match-card-heading">
           <div>
@@ -136,7 +135,7 @@ function MatchPanel({ app }: AppProps) {
         <Button
           type="button"
           size="lg"
-          className="mt-4 w-full rounded-[10px]"
+          className="match-button"
           variant={app.matchRunning ? "subtleDanger" : "primary"}
           onClick={() => app.matchRunning ? app.stopMatch() : app.startMatch()}
           disabled={app.matchRunning ? app.matchStopping : controlsDisabled}
@@ -154,20 +153,20 @@ function MatchPanel({ app }: AppProps) {
           {app.matchLogs.length ? app.matchLogs.join("\n") : "まだ対戦を開始していません。"}
         </pre>
       </section>
-    </Tabs.Panel>
+    </section>
   );
 }
 
 function SourcePanel({ app }: AppProps) {
   return (
-    <Tabs.Panel className="tab-panel source-panel" value="source" keepMounted>
+    <section className="tab-panel source-panel" hidden={app.tab !== "source"}>
       <div className="source-heading">
         <div>
           <h2>ソースコード</h2>
         </div>
         <Button
           type="button"
-          className="min-w-[68px] rounded-[9px]"
+          className="source-save-button"
           onClick={() => app.saveSource()}
           disabled={app.busy}
         >
@@ -181,34 +180,33 @@ function SourcePanel({ app }: AppProps) {
         aria-label="main.ts ソースコードエディタ"
       />
       <StatusText>{app.sourceStatus}</StatusText>
-    </Tabs.Panel>
+    </section>
   );
 }
 
 export function UtilityPane({ app }: AppProps) {
   return (
-    <Tabs.Root
+    <section
       className="utility-pane"
       id="utility-pane"
       hidden={!app.selected}
-      value={app.tab}
-      onValueChange={(value) => app.selectTab(value as "source" | "match")}
     >
       <nav className="tabs" aria-label="ツールを選択">
-        <Tabs.List className="tab-list" activateOnFocus>
+        <div className="tab-list">
           {(["source", "match"] as const).map((tab) => (
-            <Tabs.Tab
-              className={(state) => classes("tab", state.active && "active")}
-              value={tab}
+            <button
+              type="button"
+              className={classes("tab", app.tab === tab && "active")}
+              onClick={() => app.selectTab(tab)}
               key={tab}
             >
               {tab === "source" ? "ソース" : "対戦"}
-            </Tabs.Tab>
+            </button>
           ))}
-        </Tabs.List>
+        </div>
       </nav>
       <SourcePanel app={app} />
       <MatchPanel app={app} />
-    </Tabs.Root>
+    </section>
   );
 }

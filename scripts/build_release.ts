@@ -60,7 +60,7 @@ const args = [
   "--allow-env",
   "--allow-net",
   "--allow-run",
-  ".",
+  "desktop/app.ts",
 ];
 
 try {

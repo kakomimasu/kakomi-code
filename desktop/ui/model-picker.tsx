@@ -1,4 +1,3 @@
-import { Field } from "@base-ui/react/field";
 import type { KakomiApp } from "./types.ts";
 
 type ModelPickerProps = Pick<
@@ -17,42 +16,36 @@ export function ModelPicker({ app }: { app: ModelPickerProps }) {
     : "";
 
   return (
-    <Field.Root
-      className="model-picker"
-      disabled={app.busy}
-      title="モデルID。空欄ならCLIのデフォルトを使います。"
-    >
-      <Field.Label>モデル</Field.Label>
+    <label className="model-picker" title="モデルID。空欄ならCLIのデフォルトを使います。">
+      <span>モデル</span>
       {app.modelOptions.length > 0
         ? (
-          <Field.Control
-            render={
-              <select
-                value={app.model}
-                onChange={(event) => app.setModel(event.currentTarget.value)}
-                onBlur={() => app.saveModel()}
-                aria-label={`${agentLabel}のモデル`}
-              >
-                <option value="">デフォルト</option>
-                {unknownModel && <option value={unknownModel}>{unknownModel}</option>}
-                {app.modelOptions.map((option) => (
-                  <option value={option.value} key={option.value}>{option.label}</option>
-                ))}
-              </select>
-            }
-          />
+          <select
+            value={app.model}
+            onChange={(event) => app.setModel(event.currentTarget.value)}
+            onBlur={() => app.saveModel()}
+            aria-label={`${agentLabel}のモデル`}
+            disabled={app.busy}
+          >
+            <option value="">デフォルト</option>
+            {unknownModel && <option value={unknownModel}>{unknownModel}</option>}
+            {app.modelOptions.map((option) => (
+              <option value={option.value} key={option.value}>{option.label}</option>
+            ))}
+          </select>
         )
         : (
           <>
-            <Field.Control
+            <input
               type="text"
               value={app.model}
-              onValueChange={(value) => app.setModel(value)}
+              onChange={(event) => app.setModel(event.currentTarget.value)}
               onBlur={() => app.saveModel()}
               list={`model-options-${app.agent}`}
               placeholder="デフォルト"
               autoComplete="off"
               spellCheck={false}
+              disabled={app.busy}
             />
             <datalist id={`model-options-${app.agent}`}>
               {app.modelOptions.map((option) => (
@@ -61,9 +54,9 @@ export function ModelPicker({ app }: { app: ModelPickerProps }) {
             </datalist>
           </>
         )}
-      <Field.Description className="sr-only">
+      <span className="sr-only">
         モデルIDを指定します。空欄ならコーディングAIのデフォルトを使います。
-      </Field.Description>
-    </Field.Root>
+      </span>
+    </label>
   );
 }

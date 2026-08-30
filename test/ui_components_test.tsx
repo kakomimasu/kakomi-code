@@ -68,13 +68,10 @@ const testDocument = browserWindow.document as unknown as Document;
 const { useState } = await import("react");
 const { flushSync } = await import("react-dom");
 const { createRoot } = await import("react-dom/client");
-const { ToggleGroup } = await import("@base-ui/react/toggle-group");
-const { Tooltip } = await import("@base-ui/react/tooltip");
-const { Field } = await import("@base-ui/react/field");
 const { AppDialog, useDialogController } = await import("../desktop/ui/dialogs.tsx");
 const { AppErrorBoundary } = await import("../desktop/ui/error-boundary.tsx");
 const { ModelPicker } = await import("../desktop/ui/model-picker.tsx");
-const { ResizeHandle, StatusText, TooltipToggleButton } = await import(
+const { ResizeHandle, StatusText } = await import(
   "../desktop/ui/primitives.tsx"
 );
 
@@ -178,34 +175,6 @@ Deno.test("Error Boundaryは復旧画面と再読み込み操作を表示する"
     assertEquals(reloadRequested, true);
   } finally {
     console.error = originalConsoleError;
-    flushSync(() => root.unmount());
-  }
-});
-
-Deno.test("Fieldは入力欄へラベルと説明を関連付ける", () => {
-  const { host, root } = createTestRoot();
-  try {
-    flushSync(() =>
-      root.render(
-        <Field.Root>
-          <Field.Label>作戦のアイデア</Field.Label>
-          <Field.Control render={<textarea defaultValue="守りを固める" />} />
-          <Field.Description>Enterで送信します。</Field.Description>
-        </Field.Root>,
-      )
-    );
-    const label = host.querySelector<HTMLLabelElement>("label");
-    const textarea = host.querySelector<HTMLTextAreaElement>("textarea");
-    const description = Array.from(host.querySelectorAll<HTMLElement>("[id]")).find(
-      (element) => element.textContent === "Enterで送信します。",
-    );
-    assertExists(label);
-    assertExists(textarea);
-    assertExists(description);
-    assertEquals(label.htmlFor, textarea.id);
-    assertStringIncludes(textarea.getAttribute("aria-describedby") || "", description.id);
-    assertEquals(textarea.value, "守りを固める");
-  } finally {
     flushSync(() => root.unmount());
   }
 });
@@ -386,61 +355,6 @@ Deno.test("破壊的な確認はAlert Dialogとしてキャンセルできる", 
     assertEquals(testDocument.querySelector('[role="alertdialog"]'), null);
     assertEquals(confirmationResult, false);
     assertEquals(testDocument.activeElement === trigger, true);
-  } finally {
-    flushSync(() => root.unmount());
-  }
-});
-
-function ToggleHarness() {
-  const [agent, setAgent] = useState<"codex" | "claude" | "opencode">("codex");
-  return (
-    <Tooltip.Provider delay={0}>
-      <ToggleGroup
-        aria-label="コーディングAIを選択"
-        value={[agent]}
-        onValueChange={(agents) => {
-          const selected = agents[0];
-          if (selected === "codex" || selected === "claude" || selected === "opencode") {
-            setAgent(selected);
-          }
-        }}
-      >
-        <TooltipToggleButton label="Codex" value="codex">C</TooltipToggleButton>
-        <TooltipToggleButton label="Claude Code" value="claude">A</TooltipToggleButton>
-        <TooltipToggleButton label="OpenCode" value="opencode">O</TooltipToggleButton>
-      </ToggleGroup>
-      <output data-agent>{agent}</output>
-    </Tooltip.Provider>
-  );
-}
-
-Deno.test("Toggle GroupはAIを一つだけ選択する", () => {
-  const { host, root } = createTestRoot();
-  try {
-    flushSync(() => root.render(<ToggleHarness />));
-    const codex = host.querySelector<HTMLButtonElement>('[aria-label="Codex"]');
-    const claude = host.querySelector<HTMLButtonElement>('[aria-label="Claude Code"]');
-    const opencode = host.querySelector<HTMLButtonElement>('[aria-label="OpenCode"]');
-    assertExists(codex);
-    assertExists(claude);
-    assertExists(opencode);
-    assertEquals(codex.getAttribute("aria-pressed"), "true");
-    assertEquals(claude.getAttribute("aria-pressed"), "false");
-    assertEquals(opencode.getAttribute("aria-pressed"), "false");
-
-    flushSync(() => claude.click());
-    assertEquals(codex.getAttribute("aria-pressed"), "false");
-    assertEquals(claude.getAttribute("aria-pressed"), "true");
-    assertEquals(host.querySelector("[data-agent]")?.textContent, "claude");
-
-    flushSync(() => opencode.click());
-    assertEquals(claude.getAttribute("aria-pressed"), "false");
-    assertEquals(opencode.getAttribute("aria-pressed"), "true");
-    assertEquals(host.querySelector("[data-agent]")?.textContent, "opencode");
-
-    flushSync(() => opencode.click());
-    assertEquals(opencode.getAttribute("aria-pressed"), "true");
-    assertEquals(host.querySelector("[data-agent]")?.textContent, "opencode");
   } finally {
     flushSync(() => root.unmount());
   }

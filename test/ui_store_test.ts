@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { createAppStore } from "../desktop/ui/hooks/use-app-state.ts";
 
-Deno.test("Zustandストアは共有状態を更新して購読者へ通知する", () => {
+Deno.test("React用ストアは共有状態を更新して購読者へ通知する", () => {
   const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   try {
     Object.defineProperty(globalThis, "localStorage", {

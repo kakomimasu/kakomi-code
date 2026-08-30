@@ -45,25 +45,17 @@ function VersionRow({ app, version }: AppProps & { version: Version }) {
 export function Sidebar({ app }: AppProps) {
   return (
     <aside className="sidebar" id="agent-sidebar">
-      <div className="mx-1 mt-0 mb-6 flex items-center gap-2.5 max-[520px]:mb-[18px]">
-        <img
-          className="h-[30px] w-[30px] rounded-lg shadow-[0_1px_3px_#00000020] dark:shadow-[0_4px_16px_#00000055]"
-          src={appIconUrl}
-          alt=""
-        />
+      <div className="sidebar-brand">
+        <img src={appIconUrl} alt="" />
         <div>
-          <h1 className="m-0 text-[17px] leading-normal font-[720] tracking-[-0.01em] text-[#242422] dark:text-[#efefeb]">
-            囲みコード
-          </h1>
+          <h1>囲みコード</h1>
         </div>
       </div>
-      <section className="pb-3.5">
-        <div className="flex items-center justify-between gap-3 px-1">
-          <h2 className="m-0 text-[15px] font-[680] text-[#2c2c2a] dark:text-[#efefeb]">
-            エージェント
-          </h2>
+      <section className="sidebar-section">
+        <div className="section-heading">
+          <h2>エージェント</h2>
           <TooltipButton
-            className="grid h-7 w-7 place-items-center rounded-lg border-0 bg-transparent p-0 text-[21px] leading-none text-[#656560] transition-[background,color] duration-[120ms] hover:bg-[#e8e8e4] hover:text-[#222220] dark:text-[#c6c6bf] dark:hover:bg-[#30302d] dark:hover:text-[#f2f2ee]"
+            className="icon-button"
             onClick={() => app.createVersion()}
             disabled={app.busy || app.matchRunning}
             label="テンプレートをベースに新規作成"
@@ -71,12 +63,12 @@ export function Sidebar({ app }: AppProps) {
             ＋
           </TooltipButton>
         </div>
-        <div className="grid gap-[3px]">
+        <div className="version-list">
           {app.dashboard.versions.map((version: Version) => (
             <VersionRow app={app} version={version} key={version.path} />
           ))}
           {app.dashboard.versions.length === 0 && (
-            <p className="mx-1 my-3 text-[12px] text-[#9a9a95] dark:text-[#a8a8a1]">
+            <p className="empty-versions">
               エージェントがありません。
             </p>
           )}
