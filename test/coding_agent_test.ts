@@ -15,6 +15,31 @@ Deno.test("OpenCodeをコーディングAIとして受け付ける", () => {
   assertEquals(isCodingAgent("other"), false);
 });
 
+Deno.test("Codexは隔離した非Gitフォルダでも実行できる", () => {
+  const command = codingAgentCommand(
+    "codex",
+    "/tmp/kakomi-code-agent-example",
+    "作戦を改善して",
+    "gpt-5.6-luna",
+  );
+  assertEquals(command.commandName, "codex");
+  assertEquals(command.args, [
+    "exec",
+    "--skip-git-repo-check",
+    "--json",
+    "--sandbox",
+    "workspace-write",
+    "--config",
+    'web_search="disabled"',
+    "--cd",
+    "/tmp/kakomi-code-agent-example",
+    "--model",
+    "gpt-5.6-luna",
+    "作戦を改善して",
+  ]);
+  assertEquals(command.loggedArgs.includes("作戦を改善して"), false);
+});
+
 Deno.test("OpenCodeは非対話JSONモードで選択中のバージョンを開く", () => {
   const command = codingAgentCommand(
     "opencode",
