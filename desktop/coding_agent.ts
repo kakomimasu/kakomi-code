@@ -6,10 +6,13 @@ export type CodingAgentCommand = {
   commandName: string;
   displayName: string;
   args: string[];
+  stdin: string;
   cwd?: string;
   env?: Record<string, string>;
   loggedArgs: string[];
 };
+
+const MAX_CODING_AGENT_MAIN_BYTES = 4_000_000;
 
 export type OpenCodeEventResult = {
   log?: {
@@ -77,11 +80,14 @@ export async function createOpenCodeWorkspace(versionDir: string): Promise<strin
   }
 }
 
-export async function validateOpenCodeWorkspace(workDir: string): Promise<string> {
+export async function validateOpenCodeWorkspace(
+  workDir: string,
+  maximumBytes = MAX_CODING_AGENT_MAIN_BYTES,
+): Promise<string> {
   const root = await Deno.realPath(workDir);
   const mainFile = await Deno.realPath(join(root, "main.ts"));
   const stat = await Deno.stat(mainFile);
-  if (dirname(mainFile) !== root || !stat.isFile) {
+  if (dirname(mainFile) !== root || !stat.isFile || stat.size > maximumBytes) {
     throw new Error("OpenCodeの作業結果が不正です。");
   }
   return mainFile;
@@ -204,19 +210,21 @@ export function codingAgentCommand(
       "--cd",
       versionDir,
       ...modelArgs,
-      prompt,
+      "-",
     ];
     return {
       commandName: "codex",
       displayName: "Codex CLI",
       args,
-      loggedArgs: args.slice(0, -1),
+      stdin: prompt,
+      loggedArgs: args,
     };
   }
   if (agent === "claude") {
     const args = [
       "-p",
-      prompt,
+      "--input-format",
+      "text",
       "--permission-mode",
       "acceptEdits",
       "--tools",
@@ -235,8 +243,9 @@ export function codingAgentCommand(
       commandName: "claude",
       displayName: "Claude Code",
       args,
+      stdin: prompt,
       cwd: versionDir,
-      loggedArgs: [args[0], "…", ...args.slice(2)],
+      loggedArgs: args,
     };
   }
 
@@ -250,14 +259,14 @@ export function codingAgentCommand(
     "--dir",
     versionDir,
     ...modelArgs,
-    prompt,
   ];
   return {
     commandName: "opencode",
     displayName: "OpenCode",
     args,
+    stdin: prompt,
     cwd: versionDir,
     env: { OPENCODE_CONFIG_CONTENT: opencodeConfig(versionDir) },
-    loggedArgs: args.slice(0, -1),
+    loggedArgs: args,
   };
 }

@@ -311,3 +311,44 @@ Deno.test("versionsの外にある版は検証も削除も拒否する", async (
     await Deno.remove(projectDir, { recursive: true });
   }
 });
+
+Deno.test("versionsルートがsymlinkの場合は外部の一覧と操作を拒否する", async () => {
+  const workspace = await Deno.makeTempDir();
+  try {
+    const projectDir = join(workspace, "project");
+    const outsideVersions = join(workspace, "outside-versions");
+    const outsideVersion = join(outsideVersions, "v002-外部");
+    await Deno.mkdir(join(projectDir, "template"), { recursive: true });
+    await Deno.mkdir(outsideVersion, { recursive: true });
+    await Deno.writeTextFile(join(projectDir, "template", "main.ts"), "// template\n");
+    await Deno.writeTextFile(join(outsideVersion, "main.ts"), "// outside\n");
+    await Deno.symlink(outsideVersions, join(projectDir, "versions"));
+
+    for (
+      const operation of [
+        () => initializeProject(projectDir),
+        () => listVersions(projectDir),
+        () => createVersion(projectDir, "外部へ作らない"),
+        () => validateVersion(projectDir, outsideVersion),
+        () => renameVersion(projectDir, outsideVersion, "変更しない"),
+        () => deleteVersion(projectDir, outsideVersion),
+      ]
+    ) {
+      await assertRejects(
+        operation,
+        Error,
+        "versionsフォルダーが不正です。",
+      );
+    }
+
+    assertEquals(await Deno.readTextFile(join(outsideVersion, "main.ts")), "// outside\n");
+    assertEquals(
+      await Array.fromAsync(Deno.readDir(outsideVersions)).then((entries) =>
+        entries.map((entry) => entry.name)
+      ),
+      ["v002-外部"],
+    );
+  } finally {
+    await Deno.remove(workspace, { recursive: true });
+  }
+});

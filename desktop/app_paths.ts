@@ -74,4 +74,5 @@ async function installBundledWorkspace(
   await Deno.mkdir(templateDir, { recursive: true });
   await Deno.copyFile(options.bundledTemplatePath, join(templateDir, "main.ts"));
   await Deno.copyFile(options.bundledConfigPath, join(workspaceDir, "deno.json"));
+  await Deno.copyFile(options.bundledConfigPath, join(templateDir, "deno.json"));
 }

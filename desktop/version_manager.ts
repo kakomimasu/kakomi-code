@@ -4,6 +4,10 @@ export type VersionInfo = { name: string; path: string; ready: boolean };
 export const BASE_VERSION_NAME = "エルメマス1号";
 export const TEMPLATE_PATH = "template/main.ts";
 const VERSION_PATTERN = /^v(\d{3,})-/;
+const INVALID_VERSIONS_ROOT_MESSAGE =
+  "versionsフォルダーが不正です。通常のフォルダーを用意してください。";
+
+type VersionsRoot = { path: string; realPath: string };
 
 export function normalizeSourceVersion(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
@@ -27,12 +31,48 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+async function versionsRoot(projectDir: string): Promise<VersionsRoot | null> {
+  const project = resolve(projectDir);
+  const path = join(project, "versions");
+  let stat: Deno.FileInfo;
+  try {
+    stat = await Deno.lstat(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) return null;
+    throw error;
+  }
+  if (stat.isSymlink || !stat.isDirectory) {
+    throw new Error(INVALID_VERSIONS_ROOT_MESSAGE);
+  }
+
+  const [realProject, realPath] = await Promise.all([
+    Deno.realPath(project),
+    Deno.realPath(path),
+  ]);
+  if (realPath !== join(realProject, "versions")) {
+    throw new Error(INVALID_VERSIONS_ROOT_MESSAGE);
+  }
+  return { path, realPath };
+}
+
+async function ensureVersionsRoot(projectDir: string): Promise<VersionsRoot> {
+  const existing = await versionsRoot(projectDir);
+  if (existing) return existing;
+
+  await Deno.mkdir(join(resolve(projectDir), "versions"), { recursive: true });
+  const created = await versionsRoot(projectDir);
+  if (!created) throw new Error(INVALID_VERSIONS_ROOT_MESSAGE);
+  return created;
+}
+
 export async function listVersions(projectDir: string): Promise<VersionInfo[]> {
   const versions: VersionInfo[] = [];
+  const root = await versionsRoot(projectDir);
+  if (!root) return versions;
   try {
-    for await (const entry of Deno.readDir(join(projectDir, "versions"))) {
+    for await (const entry of Deno.readDir(root.path)) {
       if (!entry.isDirectory || !isManagedVersionName(entry.name)) continue;
-      const path = join(projectDir, "versions", entry.name);
+      const path = join(root.path, entry.name);
       const ready = await exists(join(path, "main.ts"));
       versions.push({ name: entry.name, path, ready });
     }
@@ -49,9 +89,10 @@ export async function listVersions(projectDir: string): Promise<VersionInfo[]> {
 }
 
 export async function validateVersion(projectDir: string, versionDir: string): Promise<string> {
-  const root = await Deno.realPath(join(projectDir, "versions"));
+  const versions = await versionsRoot(projectDir);
+  if (!versions) throw new Error("versions配下の有効なバージョンを選択してください");
   const target = await Deno.realPath(versionDir);
-  if (dirname(target) !== root || !isManagedVersionName(basename(target))) {
+  if (dirname(target) !== versions.realPath || !isManagedVersionName(basename(target))) {
     throw new Error("versions配下の有効なバージョンを選択してください");
   }
   try {
@@ -88,9 +129,10 @@ export async function initializeProject(projectDir: string): Promise<void> {
   }
 
   const versionsDir = join(project, "versions");
-  if (await exists(versionsDir)) return;
+  if (await versionsRoot(project)) return;
 
-  const baseDir = join(versionsDir, BASE_VERSION_NAME);
+  const root = await ensureVersionsRoot(project);
+  const baseDir = join(root.path, BASE_VERSION_NAME);
   await Deno.mkdir(baseDir, { recursive: true });
   try {
     await Deno.copyFile(template, join(baseDir, "main.ts"));
@@ -106,8 +148,8 @@ export async function createVersion(
   sourceVersionDir?: string,
 ): Promise<VersionInfo> {
   const project = resolve(projectDir);
-  const versionsDir = join(project, "versions");
-  await Deno.mkdir(versionsDir, { recursive: true });
+  const root = await ensureVersionsRoot(project);
+  const versionsDir = root.path;
   const versions = await listVersions(project);
   const sourcePath = sourceVersionDir
     ? join(await validateVersion(project, sourceVersionDir), "main.ts")
@@ -160,9 +202,10 @@ export async function renameVersion(
 
 /** Delete one managed version after confirming it is a direct child of versions/. */
 export async function deleteVersion(projectDir: string, versionDir: string): Promise<void> {
-  const root = await Deno.realPath(join(projectDir, "versions"));
+  const versions = await versionsRoot(projectDir);
+  if (!versions) throw new Error("versions配下の有効なバージョンを選択してください");
   const target = await Deno.realPath(versionDir);
-  if (dirname(target) !== root || !isManagedVersionName(basename(target))) {
+  if (dirname(target) !== versions.realPath || !isManagedVersionName(basename(target))) {
     throw new Error("versions配下の有効なバージョンを選択してください");
   }
   await Deno.remove(target, { recursive: true });

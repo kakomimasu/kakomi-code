@@ -2,6 +2,7 @@ import { dirname } from "@std/path";
 
 export type ChatMessage = { role: "user" | "assistant"; text: string };
 export type ChatHistory = Record<string, ChatMessage[]>;
+export const MAX_CHAT_HISTORY_FILE_BYTES = 64 * 1024 * 1024;
 
 export function validateChatHistory(value: unknown): ChatHistory {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -34,6 +35,8 @@ export function validateChatHistory(value: unknown): ChatHistory {
 
 export async function loadChatHistory(file: string): Promise<ChatHistory> {
   try {
+    const stat = await Deno.stat(file);
+    if (!stat.isFile || stat.size > MAX_CHAT_HISTORY_FILE_BYTES) return {};
     return validateChatHistory(JSON.parse(await Deno.readTextFile(file)));
   } catch {
     return {};
@@ -42,6 +45,10 @@ export async function loadChatHistory(file: string): Promise<ChatHistory> {
 
 export async function saveChatHistory(file: string, value: unknown) {
   const history = validateChatHistory(value);
+  const content = new TextEncoder().encode(JSON.stringify(history, null, 2) + "\n");
+  if (content.byteLength > MAX_CHAT_HISTORY_FILE_BYTES) {
+    throw new Error("チャット履歴のファイルが大きすぎます。");
+  }
   const directory = dirname(file);
   await Deno.mkdir(directory, { recursive: true });
   const temporary = await Deno.makeTempFile({
@@ -50,7 +57,7 @@ export async function saveChatHistory(file: string, value: unknown) {
     suffix: ".tmp",
   });
   try {
-    await Deno.writeTextFile(temporary, JSON.stringify(history, null, 2) + "\n");
+    await Deno.writeFile(temporary, content);
     await Deno.rename(temporary, file);
   } catch (error) {
     await Deno.remove(temporary).catch(() => {});

@@ -79,9 +79,17 @@ export function useDashboard(
   }
 
   async function selectTab(tab: UtilityTab) {
+    const current = store.getState();
+    if (tab === current.tab) {
+      if (tab === "source") {
+        if (!current.sourceDirty) await source.loadSource();
+        void nextFrame(source.layout);
+      }
+      return;
+    }
     store.setState({ tab });
     if (tab === "source") {
-      await source.loadSource();
+      if (!current.sourceDirty) await source.loadSource();
       void nextFrame(source.layout);
     }
   }
@@ -183,6 +191,7 @@ export function useDashboard(
       danger: true,
     });
     if (!confirmed) return;
+    const deletedSelected = store.getState().selected === version.path;
     try {
       await callDesktop("deleteVersion", [version.path]);
       const messagesByVersion = { ...store.getState().messagesByVersion };
@@ -192,7 +201,18 @@ export function useDashboard(
       const viewerStates = { ...store.getState().viewerStates };
       delete viewerStates[version.path];
       store.setState({ viewerStates });
-      await source.loadSource();
+      if (deletedSelected) {
+        store.setState({
+          source: "",
+          savedSource: "",
+          sourceDirty: false,
+          sourceStatus: "",
+        });
+        source.clear();
+        await source.loadSource();
+      } else if (!store.getState().sourceDirty) {
+        await source.loadSource();
+      }
       const saved = await chat.persistHistory();
       store.setState({
         status: name +

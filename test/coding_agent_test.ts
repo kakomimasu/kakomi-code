@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import {
   codingAgentCommand,
   createOpenCodeWorkspace,
@@ -35,8 +35,23 @@ Deno.test("Codexは隔離した非Gitフォルダでも実行できる", () => {
     "/tmp/kakomi-code-agent-example",
     "--model",
     "gpt-5.6-luna",
-    "作戦を改善して",
+    "-",
   ]);
+  assertEquals(command.stdin, "作戦を改善して");
+  assertEquals(command.loggedArgs.includes("作戦を改善して"), false);
+});
+
+Deno.test("Claude Codeはプロンプトをstdinから受け取る", () => {
+  const command = codingAgentCommand(
+    "claude",
+    "/tmp/kakomi-code-agent-example",
+    "作戦を改善して",
+    "haiku",
+  );
+  assertEquals(command.cwd, "/tmp/kakomi-code-agent-example");
+  assertEquals(command.stdin, "作戦を改善して");
+  assertEquals(command.args.slice(0, 3), ["-p", "--input-format", "text"]);
+  assertEquals(command.args.includes("作戦を改善して"), false);
   assertEquals(command.loggedArgs.includes("作戦を改善して"), false);
 });
 
@@ -60,10 +75,20 @@ Deno.test("OpenCodeは非対話JSONモードで選択中のバージョンを開
     "/workspace/versions/v001-sample",
     "--model",
     "anthropic/claude-sonnet-4-5",
-    "作戦を改善して",
   ]);
+  assertEquals(command.stdin, "作戦を改善して");
   assertEquals(command.loggedArgs.includes("作戦を改善して"), false);
   assertEquals(command.args.includes("--auto"), false);
+});
+
+Deno.test("長いプロンプトをコマンド引数へ含めない", () => {
+  const prompt = "作".repeat(100_000);
+  for (const agent of ["codex", "claude", "opencode"] as const) {
+    const command = codingAgentCommand(agent, "/tmp/workspace", prompt, "");
+    assertEquals(command.stdin, prompt);
+    assertEquals(command.args.includes(prompt), false);
+    assertEquals(command.loggedArgs.includes(prompt), false);
+  }
 });
 
 Deno.test("OpenCodeは隔離作業フォルダの読み書きだけを許可する", () => {
@@ -101,6 +126,19 @@ Deno.test("OpenCodeの作業は一時フォルダのmain.tsへ隔離する", asy
     );
     await Deno.writeTextFile(`${workDir}/main.ts`, "// changed\n");
     assertEquals(await Deno.readTextFile(`${versionDir}/main.ts`), "// original\n");
+  } finally {
+    await Deno.remove(workDir, { recursive: true });
+    await Deno.remove(versionDir, { recursive: true });
+  }
+});
+
+Deno.test("OpenCodeの過大なmain.tsは型チェック前に拒否する", async () => {
+  const versionDir = await Deno.makeTempDir();
+  await Deno.writeTextFile(`${versionDir}/main.ts`, "// original\n");
+  const workDir = await createOpenCodeWorkspace(versionDir);
+  try {
+    await Deno.truncate(`${workDir}/main.ts`, 41);
+    await assertRejects(() => validateOpenCodeWorkspace(workDir, 40), Error, "不正");
   } finally {
     await Deno.remove(workDir, { recursive: true });
     await Deno.remove(versionDir, { recursive: true });

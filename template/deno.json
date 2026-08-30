@@ -1,5 +1,6 @@
 {
   "imports": {
-    "@kakomimasu/client-deno": "https://raw.githubusercontent.com/kakomimasu/client-deno/main/KakomimasuClient.ts"
+    "@kakomimasu/client-deno": "https://raw.githubusercontent.com/kakomimasu/client-deno/main/KakomimasuClient.ts",
+    "@kakomimasu/client-js": "jsr:@kakomimasu/client-js@^0.1.0"
   }
 }

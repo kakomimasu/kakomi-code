@@ -1,15 +1,63 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import {
+  DEPENDENCY_IMPORT_PERMISSION,
   dependencyCacheArgs,
+  dependencyCheckArgs,
+  dependencyInfoArgs,
   executableNames,
   findExecutable,
 } from "../desktop/command_resolver.ts";
 
 Deno.test("依存取得は公式クライアントが使うホストだけを許可する", () => {
+  assertEquals(
+    DEPENDENCY_IMPORT_PERMISSION,
+    "--allow-import=jsr.io,raw.githubusercontent.com",
+  );
   assertEquals(dependencyCacheArgs("/workspace/main.ts"), [
     "cache",
+    "--no-npm",
+    "--no-lock",
     "--allow-import=jsr.io,raw.githubusercontent.com",
+    "/workspace/main.ts",
+  ]);
+});
+
+Deno.test("依存グラフの検査もnpmと管理外ホストを使わない", () => {
+  assertEquals(dependencyInfoArgs("/workspace/main.ts"), [
+    "info",
+    "--json",
+    "--no-check",
+    "--no-npm",
+    "--no-lock",
+    "--allow-import=jsr.io,raw.githubusercontent.com",
+    "/workspace/main.ts",
+  ]);
+});
+
+Deno.test("依存グラフの検査は信頼済み設定ファイルを明示できる", () => {
+  assertEquals(dependencyInfoArgs("/workspace/main.ts", "/bundle/template/deno.json"), [
+    "info",
+    "--json",
+    "--no-check",
+    "--no-npm",
+    "--no-lock",
+    "--allow-import=jsr.io,raw.githubusercontent.com",
+    "--config",
+    "/bundle/template/deno.json",
+    "/workspace/main.ts",
+  ]);
+});
+
+Deno.test("型チェックは取得済みの非npm依存だけを使う", () => {
+  assertEquals(dependencyCheckArgs("/workspace/main.ts", "/bundle/template/deno.json"), [
+    "check",
+    "--cached-only",
+    "--no-npm",
+    "--no-lock",
+    "--allow-import=jsr.io,raw.githubusercontent.com",
+    "--config",
+    "/bundle/template/deno.json",
     "/workspace/main.ts",
   ]);
 });

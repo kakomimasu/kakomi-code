@@ -25,6 +25,12 @@ export async function applyAgentMain(
   if (!stat.isFile || stat.isSymlink) {
     throw new Error("コーディングAIがmain.ts以外の形式を返したため、変更を適用しませんでした。");
   }
+  // UTF-8の1文字は最大4バイト。親プロセスで全文を文字列化する前に拒否する。
+  if (stat.size > maximumCharacters * 4) {
+    throw new Error(
+      "コーディングAIが返したmain.tsの大きさが不正なため、変更を適用しませんでした。",
+    );
+  }
   const source = await Deno.readTextFile(mainPath);
   if (!source.trim() || source.length > maximumCharacters) {
     throw new Error(

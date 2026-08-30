@@ -8,9 +8,42 @@ type FindExecutableOptions = {
 };
 
 const dependencyImportHosts = ["jsr.io", "raw.githubusercontent.com"];
+export const DEPENDENCY_IMPORT_PERMISSION = `--allow-import=${dependencyImportHosts.join(",")}`;
+
+export function dependencyInfoArgs(mainPath: string, configPath?: string): string[] {
+  return [
+    "info",
+    "--json",
+    "--no-check",
+    "--no-npm",
+    "--no-lock",
+    DEPENDENCY_IMPORT_PERMISSION,
+    ...(configPath ? ["--config", configPath] : []),
+    mainPath,
+  ];
+}
 
 export function dependencyCacheArgs(mainPath: string): string[] {
-  return ["cache", `--allow-import=${dependencyImportHosts.join(",")}`, mainPath];
+  return [
+    "cache",
+    "--no-npm",
+    "--no-lock",
+    DEPENDENCY_IMPORT_PERMISSION,
+    mainPath,
+  ];
+}
+
+export function dependencyCheckArgs(mainPath: string, configPath: string): string[] {
+  return [
+    "check",
+    "--cached-only",
+    "--no-npm",
+    "--no-lock",
+    DEPENDENCY_IMPORT_PERMISSION,
+    "--config",
+    configPath,
+    mainPath,
+  ];
 }
 
 function joinPath(os: OperatingSystem, directory: string, ...parts: string[]): string {

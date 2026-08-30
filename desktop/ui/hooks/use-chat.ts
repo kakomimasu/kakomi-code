@@ -1,5 +1,6 @@
 import { type KeyboardEvent, type RefObject, type SyntheticEvent, useRef } from "react";
 import { callDesktop } from "../api.ts";
+import { createChatHistoryPayload, limitMessagesByVersion } from "../chat-history.ts";
 import type { DialogActions } from "../dialogs.tsx";
 import type { CodingAgent, Message } from "../types.ts";
 import { errorMessage, nextFrame } from "./helpers.ts";
@@ -18,6 +19,7 @@ export function useChat(
     autoScroll: true,
     composing: false,
     compositionGuardUntil: 0,
+    improving: false,
   }).current;
 
   function currentMessages() {
@@ -27,11 +29,10 @@ export function useChat(
 
   function historyPayload() {
     const current = store.getState();
-    return Object.fromEntries(
-      current.dashboard.versions.map((version) => [
-        version.name,
-        current.messagesByVersion[version.path] || [],
-      ]),
+    return createChatHistoryPayload(
+      current.dashboard,
+      current.messagesByVersion,
+      current.selected,
     );
   }
 
@@ -47,12 +48,17 @@ export function useChat(
   async function loadHistory() {
     const history = await callDesktop<Record<string, Message[]>>("getChatHistory");
     const current = store.getState();
+    const messagesByVersion = Object.fromEntries(
+      current.dashboard.versions.flatMap((version) => {
+        const messages = history[version.name] || [];
+        return messages.length ? [[version.path, messages] as const] : [];
+      }),
+    );
     store.setState({
-      messagesByVersion: Object.fromEntries(
-        current.dashboard.versions.map((version) => [
-          version.path,
-          history[version.name] || [],
-        ]),
+      messagesByVersion: limitMessagesByVersion(
+        current.dashboard,
+        messagesByVersion,
+        current.selected,
       ),
     });
   }
@@ -76,7 +82,9 @@ export function useChat(
       danger: true,
     });
     if (!confirmed) return;
-    store.setState({ messagesByVersion: { ...current.messagesByVersion, [current.selected]: [] } });
+    const messagesByVersion = { ...current.messagesByVersion };
+    delete messagesByVersion[current.selected];
+    store.setState({ messagesByVersion });
     const saved = await persistHistory();
     store.setState({
       status: saved ? "チャット履歴をクリアしました。" : "チャット履歴を保存できませんでした。",
@@ -85,67 +93,94 @@ export function useChat(
   }
 
   async function improve() {
-    const current = store.getState();
-    const idea = current.idea.trim();
-    if (!idea || !current.selected || current.busy) return;
-    if (!await source.saveIfDirty()) return;
-    const versionDir = current.selected;
-    const messages: Message[] = [
-      ...(current.messagesByVersion[versionDir] || []),
-      { role: "user", text: idea },
-    ];
-    store.setState({ messagesByVersion: { ...current.messagesByVersion, [versionDir]: messages } });
-    await persistHistory();
-    store.setState({
-      idea: "",
-      busy: true,
-      codingAgentRunning: true,
-      codingAgentResult: null,
-      status: "AIを起動しています…",
-    });
-    scroll(true);
+    const initial = store.getState();
+    const idea = initial.idea.trim();
+    if (!idea || !initial.selected || initial.busy || flags.improving) return;
+    flags.improving = true;
+    const versionDir = initial.selected;
+    let started = false;
     try {
-      const active = store.getState();
-      const result = await callDesktop<{ output: string; cancelled?: boolean }>(
-        "improveWithAgent",
-        [{ idea, versionDir, agent: active.agent, model: active.models[active.agent] || "" }],
+      if (!await source.saveIfDirty()) return;
+      const current = store.getState();
+      if (current.busy || current.selected !== versionDir) return;
+      const pendingMessages = limitMessagesByVersion(
+        current.dashboard,
+        {
+          ...current.messagesByVersion,
+          [versionDir]: [
+            ...(current.messagesByVersion[versionDir] || []),
+            { role: "user", text: idea },
+          ],
+        },
+        versionDir,
       );
-      const completedMessages: Message[] = [
-        ...messages,
-        { role: "assistant", text: result.output },
-      ];
+      const messages = pendingMessages[versionDir] || [];
       store.setState({
-        messagesByVersion: {
-          ...store.getState().messagesByVersion,
-          [versionDir]: completedMessages,
-        },
-        codingAgentResult: { versionDir, text: result.output },
+        messagesByVersion: pendingMessages,
+        idea: "",
+        busy: true,
+        codingAgentRunning: true,
+        codingAgentResult: null,
+        status: "AIを起動しています…",
       });
-      const saved = await persistHistory();
-      store.setState({
-        status: result.cancelled
-          ? saved ? "改善を停止しました。" : "改善を停止しましたが、履歴を保存できませんでした。"
-          : saved
-          ? "改善が完了しました。"
-          : "改善は完了しましたが、履歴を保存できませんでした。",
-      });
-    } catch (error) {
-      const message = `エラー: ${errorMessage(error)}`;
-      store.setState({
-        messagesByVersion: {
-          ...store.getState().messagesByVersion,
-          [versionDir]: [...messages, { role: "assistant", text: message }],
-        },
-        codingAgentResult: { versionDir, text: message },
-      });
-      const saved = await persistHistory();
-      store.setState({
-        status: message + (saved ? "" : "（チャット履歴も保存できませんでした）"),
-      });
+      started = true;
+      scroll(true);
+      await persistHistory();
+      try {
+        const active = store.getState();
+        const result = await callDesktop<{ output: string; cancelled?: boolean }>(
+          "improveWithAgent",
+          [{ idea, versionDir, agent: active.agent, model: active.models[active.agent] || "" }],
+        );
+        const latest = store.getState();
+        store.setState({
+          messagesByVersion: limitMessagesByVersion(
+            latest.dashboard,
+            {
+              ...latest.messagesByVersion,
+              [versionDir]: [...messages, { role: "assistant", text: result.output }],
+            },
+            versionDir,
+          ),
+          codingAgentResult: { versionDir, text: result.output },
+        });
+        const saved = await persistHistory();
+        store.setState({
+          status: result.cancelled
+            ? saved ? "改善を停止しました。" : "改善を停止しましたが、履歴を保存できませんでした。"
+            : saved
+            ? "改善が完了しました。"
+            : "改善は完了しましたが、履歴を保存できませんでした。",
+        });
+      } catch (error) {
+        const message = `エラー: ${errorMessage(error)}`;
+        const latest = store.getState();
+        store.setState({
+          messagesByVersion: limitMessagesByVersion(
+            latest.dashboard,
+            {
+              ...latest.messagesByVersion,
+              [versionDir]: [...messages, { role: "assistant", text: message }],
+            },
+            versionDir,
+          ),
+          codingAgentResult: { versionDir, text: message },
+        });
+        const saved = await persistHistory();
+        store.setState({
+          status: message + (saved ? "" : "（チャット履歴も保存できませんでした）"),
+        });
+      }
     } finally {
-      await source.loadSource(versionDir);
-      store.setState({ busy: false, codingAgentRunning: false });
-      scroll();
+      try {
+        if (started) await source.loadSource(versionDir);
+      } finally {
+        flags.improving = false;
+        if (started) {
+          store.setState({ busy: false, codingAgentRunning: false });
+          scroll();
+        }
+      }
     }
   }
 
@@ -168,6 +203,7 @@ export function useChat(
   function sendOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
     const duringComposition = flags.composing || event.nativeEvent.isComposing ||
       event.keyCode === 229 || event.key === "Process";
+    if (event.key !== "Enter") return;
     if (event.shiftKey || duringComposition || performance.now() < flags.compositionGuardUntil) {
       return;
     }

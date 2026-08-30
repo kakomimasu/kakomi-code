@@ -1,5 +1,6 @@
 import { type RefObject, useRef } from "react";
 import { callDesktop } from "../api.ts";
+import { canApplyLoadedSource } from "../source-load.ts";
 import { errorMessage } from "./helpers.ts";
 import type { AppStore } from "./use-app-state.ts";
 import { useMonacoEditor } from "./use-monaco-editor.ts";
@@ -11,36 +12,64 @@ export function useSourceEditor(
 ) {
   const reloadingRef = useRef(false);
   const reloadPendingRef = useRef(false);
+  const editRevisionRef = useRef(0);
+  const loadRequestRef = useRef(0);
   const editor = useMonacoEditor({
     containerRef: sourceEditorRef,
     darkMode,
-    onChange: (source) =>
+    onChange: (source) => {
+      editRevisionRef.current++;
       store.setState((current) => ({
         source,
         sourceDirty: source !== current.savedSource,
-      })),
+      }));
+    },
     onSave: () => void saveSource(),
   });
 
   async function loadSource(versionPath = store.getState().selected) {
+    const request = ++loadRequestRef.current;
+    const requestedRevision = editRevisionRef.current;
     if (!versionPath) {
       store.setState({ source: "", savedSource: "", sourceDirty: false, sourceStatus: "" });
       await editor.ready();
+      if (request !== loadRequestRef.current || store.getState().selected) return;
       editor.setValue("");
       return;
     }
     store.setState({ sourceStatus: "読み込み中…" });
     try {
       const source = await callDesktop<string>("getSource", [versionPath]);
-      if (store.getState().selected !== versionPath) return;
-      store.setState({ source, savedSource: source, sourceDirty: false });
       await editor.ready();
-      if (store.getState().selected !== versionPath) return;
+      const current = store.getState();
+      if (
+        !canApplyLoadedSource({
+          currentRequest: loadRequestRef.current,
+          currentRevision: editRevisionRef.current,
+          dirty: current.sourceDirty,
+          requestedRevision,
+          request,
+          selected: current.selected,
+          versionPath,
+        })
+      ) {
+        if (
+          current.selected === versionPath && request === loadRequestRef.current &&
+          (current.sourceDirty || requestedRevision !== editRevisionRef.current)
+        ) {
+          store.setState({ sourceStatus: "未保存の編集を保持しました。" });
+        }
+        return;
+      }
+      store.setState({ source, savedSource: source, sourceDirty: false });
       editor.setValue(source);
       editor.layout();
       store.setState({ sourceStatus: "" });
     } catch (error) {
-      if (store.getState().selected === versionPath) {
+      if (
+        store.getState().selected === versionPath &&
+        request === loadRequestRef.current
+      ) {
         store.setState({ sourceStatus: `エラー: ${errorMessage(error)}` });
       }
     }

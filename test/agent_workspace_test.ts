@@ -43,3 +43,21 @@ Deno.test("コーディングAIがmain.tsをシンボリックリンクへ変え
     await Deno.remove(workspace, { recursive: true }).catch(() => {});
   }
 });
+
+Deno.test("コーディングAIの過大なmain.tsは全文を読み込む前に拒否する", async () => {
+  const root = await Deno.makeTempDir();
+  const version = join(root, "version");
+  const workspace = join(root, "workspace");
+  await Deno.mkdir(version);
+  await Deno.mkdir(workspace);
+  await Deno.writeTextFile(join(version, "main.ts"), "original\n");
+  const stagedMain = join(workspace, "main.ts");
+  await Deno.writeTextFile(stagedMain, "x");
+  await Deno.truncate(stagedMain, 4_001);
+  try {
+    await assertRejects(() => applyAgentMain(workspace, version, 1_000), Error, "大きさ");
+    assertEquals(await Deno.readTextFile(join(version, "main.ts")), "original\n");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});

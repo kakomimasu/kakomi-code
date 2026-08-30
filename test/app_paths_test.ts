@@ -62,6 +62,10 @@ Deno.test("配布版はユーザー領域へテンプレートを展開する", 
       "// bundled\n",
     );
     assertEquals(await Deno.readTextFile(join(projectDir, "deno.json")), '{"imports":{}}\n');
+    assertEquals(
+      await Deno.readTextFile(join(projectDir, "template", "deno.json")),
+      '{"imports":{}}\n',
+    );
 
     await Deno.writeTextFile(join(projectDir, "template", "main.ts"), "// old\n");
     assertEquals(

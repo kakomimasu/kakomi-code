@@ -1,5 +1,10 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { loadChatHistory, saveChatHistory, validateChatHistory } from "../desktop/chat_history.ts";
+import {
+  loadChatHistory,
+  MAX_CHAT_HISTORY_FILE_BYTES,
+  saveChatHistory,
+  validateChatHistory,
+} from "../desktop/chat_history.ts";
 
 Deno.test("チャット履歴を保存して次回起動時に読み込める", async () => {
   const directory = await Deno.makeTempDir();
@@ -39,6 +44,18 @@ Deno.test("存在しない、または壊れたチャット履歴は空として
     const invalid = `${directory}/invalid.json`;
     await Deno.writeTextFile(invalid, JSON.stringify({ version: [{ role: "system", text: "x" }] }));
     assertEquals(await loadChatHistory(invalid), {});
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
+});
+
+Deno.test("過大なチャット履歴は全文を読み込む前に空として扱う", async () => {
+  const directory = await Deno.makeTempDir();
+  const file = `${directory}/chat-history.json`;
+  try {
+    await Deno.writeTextFile(file, "{}");
+    await Deno.truncate(file, MAX_CHAT_HISTORY_FILE_BYTES + 1);
+    assertEquals(await loadChatHistory(file), {});
   } finally {
     await Deno.remove(directory, { recursive: true });
   }
