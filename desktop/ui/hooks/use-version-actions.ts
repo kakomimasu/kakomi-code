@@ -3,7 +3,7 @@ import type { DialogActions } from "../dialogs.tsx";
 import type { Version } from "../types.ts";
 import { loadViewerState } from "../viewer.ts";
 import { displayVersionName, errorMessage } from "./helpers.ts";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 import type { DashboardSourceActions } from "./use-dashboard-navigation.ts";
 
 type VersionActionOptions = {
@@ -16,6 +16,7 @@ type VersionActionOptions = {
 
 export function useVersionActions(options: VersionActionOptions) {
   const { store, source, persistHistory, dialogs, refresh } = options;
+  const { updateChat, updateMatch, updateShell, updateSource } = store.getState();
 
   async function createVersion(sourceVersion?: string) {
     const current = store.getState();
@@ -32,7 +33,7 @@ export function useVersionActions(options: VersionActionOptions) {
     });
     if (!name?.trim()) return;
     if (!await source.saveIfDirty()) return;
-    store.setState({ busy: true, status: "コピー中…" });
+    updateShell({ busy: true, status: "コピー中…" });
     try {
       const result = await callDesktop<{ version: Version }>("createVersion", [{
         agentName: name.trim(),
@@ -40,11 +41,11 @@ export function useVersionActions(options: VersionActionOptions) {
       }]);
       await refresh(result.version.path);
       await source.loadSource(result.version.path);
-      store.setState({ status: `${displayVersionName(result.version.name)} を作成しました。` });
+      updateShell({ status: `${displayVersionName(result.version.name)} を作成しました。` });
     } catch (error) {
-      store.setState({ status: `エラー: ${errorMessage(error)}` });
+      updateShell({ status: `エラー: ${errorMessage(error)}` });
     } finally {
-      store.setState({ busy: false });
+      updateShell({ busy: false });
     }
   }
 
@@ -58,7 +59,7 @@ export function useVersionActions(options: VersionActionOptions) {
     });
     if (!name?.trim() || name.trim() === currentName) return;
     if (!await source.saveIfDirty()) return;
-    store.setState({ busy: true, status: "名前を変更しています…" });
+    updateShell({ busy: true, status: "名前を変更しています…" });
     try {
       const previousMessages = store.getState().messagesByVersion[version.path];
       const result = await callDesktop<{ version: Version }>("renameVersion", [{
@@ -71,7 +72,7 @@ export function useVersionActions(options: VersionActionOptions) {
           [result.version.path]: previousMessages,
         };
         delete messagesByVersion[version.path];
-        store.setState({ messagesByVersion });
+        updateChat({ messagesByVersion });
       }
       await refresh(result.version.path);
       const refreshed = store.getState();
@@ -82,7 +83,7 @@ export function useVersionActions(options: VersionActionOptions) {
         };
         delete viewerStates[version.path];
         const viewer = loadViewerState(viewerStates, result.version.path);
-        store.setState({
+        updateMatch({
           viewerStates,
           viewerUrl: viewer.url,
           viewerOpen: viewer.open,
@@ -94,14 +95,14 @@ export function useVersionActions(options: VersionActionOptions) {
       }
       await source.loadSource(result.version.path);
       const saved = await persistHistory();
-      store.setState({
+      updateShell({
         status: displayVersionName(result.version.name) +
           (saved ? " に変更しました。" : " に変更しましたが、チャット履歴を保存できませんでした。"),
       });
     } catch (error) {
-      store.setState({ status: `エラー: ${errorMessage(error)}` });
+      updateShell({ status: `エラー: ${errorMessage(error)}` });
     } finally {
-      store.setState({ busy: false });
+      updateShell({ busy: false });
     }
   }
 
@@ -119,13 +120,13 @@ export function useVersionActions(options: VersionActionOptions) {
       await callDesktop("deleteVersion", [version.path]);
       const messagesByVersion = { ...store.getState().messagesByVersion };
       delete messagesByVersion[version.path];
-      store.setState({ messagesByVersion });
+      updateChat({ messagesByVersion });
       await refresh();
       const viewerStates = { ...store.getState().viewerStates };
       delete viewerStates[version.path];
-      store.setState({ viewerStates });
+      updateMatch({ viewerStates });
       if (deletedSelected) {
-        store.setState({
+        updateSource({
           source: "",
           savedSource: "",
           sourceDirty: false,
@@ -137,12 +138,12 @@ export function useVersionActions(options: VersionActionOptions) {
         await source.loadSource();
       }
       const saved = await persistHistory();
-      store.setState({
+      updateShell({
         status: name +
           (saved ? " を削除しました。" : " を削除しましたが、チャット履歴を保存できませんでした。"),
       });
     } catch (error) {
-      store.setState({ status: `エラー: ${errorMessage(error)}` });
+      updateShell({ status: `エラー: ${errorMessage(error)}` });
     }
   }
 

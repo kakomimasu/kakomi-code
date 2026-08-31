@@ -4,7 +4,7 @@ import { BOARD_PREVIEWS, MODEL_OPTIONS, PRACTICE_OPPONENTS } from "../data.ts";
 import type { DialogActions } from "../dialogs.tsx";
 import type { KakomiApp, ModelOption, UtilityTab } from "../types.ts";
 import { displayVersionName, errorMessage, nextFrame } from "./helpers.ts";
-import { useAppState } from "./use-app-state.ts";
+import { type AppStoreState, useAppStore, useAppStoreApi } from "./use-app-store.tsx";
 import { useChat } from "./use-chat.ts";
 import { useColorScheme } from "./use-color-scheme.ts";
 import { useDashboard } from "./use-dashboard.ts";
@@ -13,8 +13,42 @@ import { useMatch } from "./use-match.ts";
 import { usePaneResize } from "./use-pane-resize.ts";
 import { useSourceEditor } from "./use-source-editor.ts";
 
+const EMPTY_MESSAGES: KakomiApp["messages"] = [];
+
+export function selectKakomiViewState(state: AppStoreState) {
+  return {
+    dashboard: state.dashboard,
+    selected: state.selected,
+    tab: state.tab,
+    agent: state.agent,
+    model: state.models[state.agent] || "",
+    messages: state.selected
+      ? state.messagesByVersion[state.selected] ?? EMPTY_MESSAGES
+      : EMPTY_MESSAGES,
+    codingLogs: state.codingLogs,
+    codingAgentResult: state.codingAgentResult,
+    matchLogs: state.matchLogs,
+    idea: state.idea,
+    status: state.status,
+    matchStatus: state.matchStatus,
+    matchRunning: state.matchRunning,
+    matchStopping: state.matchStopping,
+    viewerUrl: state.viewerUrl,
+    viewerOpen: state.viewerOpen,
+    viewerLoading: state.viewerLoading,
+    ai: state.ai,
+    board: state.board,
+    busy: state.busy,
+    codingAgentRunning: state.codingAgentRunning,
+    stopping: state.stopping,
+    sourceStatus: state.sourceStatus,
+    sourceDirty: state.sourceDirty,
+  };
+}
+
 export function useKakomiApp(dialogs: DialogActions): KakomiApp {
-  const { state, store } = useAppState();
+  const store = useAppStoreApi();
+  const state = useAppStore(selectKakomiViewState);
   const darkMode = useColorScheme();
   const paneResize = usePaneResize();
   const chatFeedRef = useRef<HTMLDivElement>(null);
@@ -56,7 +90,7 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
         await pollLogs();
         if (!cancelled) timer = setInterval(() => void pollLogs(), 1000);
       } catch (error) {
-        if (!cancelled) store.setState({ status: `エラー: ${errorMessage(error)}` });
+        if (!cancelled) store.getState().updateShell({ status: `エラー: ${errorMessage(error)}` });
       }
     })();
     return () => {
@@ -85,7 +119,6 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     if (tab === "match") match.scrollLogs();
   }
 
-  const messages = state.selected ? state.messagesByVersion[state.selected] || [] : [];
   const finalMessage = state.codingAgentResult?.versionDir === state.selected
     ? { role: "assistant" as const, text: state.codingAgentResult.text }
     : null;
@@ -103,10 +136,10 @@ export function useKakomiApp(dialogs: DialogActions): KakomiApp {
     selected: state.selected,
     tab: state.tab,
     agent: state.agent,
-    model: state.models[state.agent] || "",
+    model: state.model,
     modelOptions: state.agent === "opencode" ? openCodeModelOptions : MODEL_OPTIONS[state.agent],
-    messages,
-    messagesBeforeCodingLogs: finalMessage ? messages.slice(0, -1) : messages,
+    messages: state.messages,
+    messagesBeforeCodingLogs: finalMessage ? state.messages.slice(0, -1) : state.messages,
     displayedCodingLogs,
     codingAgentFinalMessage: finalMessage,
     matchLogs: state.matchLogs,

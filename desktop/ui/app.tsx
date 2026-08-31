@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { appIconUrl } from "./assets.ts";
 import { ChatPane } from "./chat.tsx";
 import { AppDialog, useDialogController } from "./dialogs.tsx";
+import { AppStoreProvider } from "./hooks/use-app-store.tsx";
 import { useKakomiApp } from "./hooks/use-kakomi-app.ts";
 import { PANE_WIDTHS } from "./hooks/use-pane-resize.ts";
 import { ResizeHandle } from "./primitives.tsx";
@@ -22,7 +23,7 @@ function EmptyWorkspace({ hidden }: { hidden: boolean }) {
   );
 }
 
-export function App() {
+function AppContent() {
   const dialogs = useDialogController();
   const app = useKakomiApp(dialogs);
   const noSelection = !app.selected;
@@ -63,5 +64,13 @@ export function App() {
       <EmptyWorkspace hidden={!noSelection} />
       <AppDialog controller={dialogs} />
     </main>
+  );
+}
+
+export function App() {
+  return (
+    <AppStoreProvider>
+      <AppContent />
+    </AppStoreProvider>
   );
 }

@@ -1,5 +1,6 @@
+import { z } from "zod";
 import { applyAgentMain, createAgentWorkspace } from "./agent_workspace.ts";
-import { type CodingAgent, codingAgentCommand, isCodingAgent } from "./coding_agent.ts";
+import { CODING_AGENTS, codingAgentCommand } from "./coding_agent.ts";
 import { codingAgentEnvironment } from "./coding_agent_environment.ts";
 import { CodingAgentOutput } from "./coding_agent_output.ts";
 import { CodingAgentProcess } from "./coding_agent_process.ts";
@@ -11,17 +12,33 @@ import {
   requestCodingAgentStop,
 } from "./coding_agent_run.ts";
 import { findExecutable } from "./command_resolver.ts";
+import { parseInput, versionDirectorySchema } from "./input_validation.ts";
 import { createOpenCodeWorkspace, parseOpenCodeModels } from "./opencode_adapter.ts";
 import { OpenCodeValidator } from "./opencode_validator.ts";
 import { captureOutput } from "./process_output.ts";
 import { validateVersion } from "./version_manager.ts";
 
-export type ImproveRequest = {
-  idea: string;
-  versionDir: string;
-  agent: CodingAgent;
-  model: string;
-};
+const IDEA_ERROR = "作戦のアイデアは1〜100,000文字で入力してください。";
+const MODEL_ERROR =
+  "モデルIDは英数字、ピリオド、スラッシュ、チルダ、ハイフン、アンダースコア、コロンで入力してください。";
+const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/~-]*$/;
+
+const improveRequestSchema = z.object({
+  idea: z.string({ error: IDEA_ERROR })
+    .max(100_000, { error: IDEA_ERROR })
+    .transform((idea) => idea.trim())
+    .refine((idea) => idea.length > 0, { error: IDEA_ERROR }),
+  versionDir: versionDirectorySchema,
+  agent: z.enum(CODING_AGENTS, { error: "コーディングAIを選択してください。" }),
+  model: z.string({ error: MODEL_ERROR })
+    .trim()
+    .max(100, { error: MODEL_ERROR })
+    .refine((model) => !model || MODEL_PATTERN.test(model), { error: MODEL_ERROR })
+    .optional()
+    .default(""),
+}, { error: "改善依頼が不正です。" });
+
+export type ImproveRequest = z.output<typeof improveRequestSchema>;
 
 type CodingAgentControllerOptions = {
   projectDir: string;
@@ -30,32 +47,7 @@ type CodingAgentControllerOptions = {
 };
 
 export function validateImproveRequest(value: unknown): ImproveRequest {
-  if (!value || typeof value !== "object") throw new Error("改善依頼が不正です。");
-  const { idea, versionDir, agent, model } = value as Record<string, unknown>;
-  if (typeof idea !== "string" || !idea.trim() || idea.length > 100_000) {
-    throw new Error("作戦のアイデアは1〜100,000文字で入力してください。");
-  }
-  if (typeof versionDir !== "string" || !versionDir) {
-    throw new Error("バージョンを選択してください。");
-  }
-  if (!isCodingAgent(agent)) {
-    throw new Error("コーディングAIを選択してください。");
-  }
-  if (
-    model !== undefined &&
-    (typeof model !== "string" || model.trim().length > 100 ||
-      (model.trim() && !/^[A-Za-z0-9][A-Za-z0-9._:/~-]*$/.test(model.trim())))
-  ) {
-    throw new Error(
-      "モデルIDは英数字、ピリオド、スラッシュ、チルダ、ハイフン、アンダースコア、コロンで入力してください。",
-    );
-  }
-  return {
-    idea: idea.trim(),
-    versionDir,
-    agent,
-    model: typeof model === "string" ? model.trim() : "",
-  };
+  return parseInput(improveRequestSchema, value);
 }
 
 export function buildImprovementPrompt(request: ImproveRequest, clientContext: string): string {

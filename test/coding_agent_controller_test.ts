@@ -19,9 +19,28 @@ Deno.test("コーディングAIの改善依頼を検証して空白を除く", (
       model: "gpt-5.6",
     },
   );
+  assertEquals(
+    validateImproveRequest({
+      idea: "改善する",
+      versionDir: "v001-sample",
+      agent: "claude",
+    }).model,
+    "",
+  );
 });
 
 Deno.test("不正なコーディングAIとモデルIDを拒否する", () => {
+  assertThrows(
+    () =>
+      validateImproveRequest({
+        idea: `改善${" ".repeat(100_000)}`,
+        versionDir: "v001-sample",
+        agent: "codex",
+        model: "",
+      }),
+    Error,
+    "作戦のアイデアは1〜100,000文字",
+  );
   assertThrows(
     () =>
       validateImproveRequest({

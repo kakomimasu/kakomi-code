@@ -1,4 +1,11 @@
 import { join } from "@std/path";
+import {
+  MAX_SOURCE_CHARACTERS,
+  parseCreateVersionRequest,
+  parseRenameVersionRequest,
+  parseSaveSourceRequest,
+  parseVersionDirectory,
+} from "./api_requests.ts";
 import { applicationMenu } from "./application_menu.ts";
 import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
 import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
@@ -11,7 +18,6 @@ import {
   deleteVersion,
   initializeProject,
   listVersions,
-  normalizeSourceVersion,
   renameVersion,
   validateVersion,
 } from "./version_manager.ts";
@@ -32,7 +38,6 @@ const settingsDir = resolveSettingsDir(Deno.env.toObject(), Deno.cwd());
 const projectFile = join(settingsDir, "project-dir.txt");
 const chatHistoryFile = join(settingsDir, "chat-history.json");
 const apiToken = crypto.randomUUID();
-const MAX_SOURCE_CHARACTERS = 1_000_000;
 
 async function saveProjectDir(projectDir: string) {
   await Deno.mkdir(settingsDir, { recursive: true });
@@ -116,57 +121,29 @@ expose("getMatchLogs", () => matchController.getState());
 expose("getCodingAgentLogs", () => codingAgentController.getState());
 expose("stopCodingAgent", () => codingAgentController.stop());
 expose("getSource", async (versionDir: unknown) => {
-  if (typeof versionDir !== "string" || !versionDir) {
-    throw new Error("バージョンを選択してください。");
-  }
-  const target = await validateVersion(projectDir, versionDir);
+  const target = await validateVersion(projectDir, parseVersionDirectory(versionDir));
   return await Deno.readTextFile(join(target, "main.ts"));
 });
 expose("saveSource", async (versionDir: unknown, source: unknown) => {
-  if (typeof versionDir !== "string" || !versionDir) {
-    throw new Error("バージョンを選択してください。");
-  }
-  if (typeof source !== "string" || !source.trim() || source.length > MAX_SOURCE_CHARACTERS) {
-    throw new Error("ソースは1〜1,000,000文字で入力してください。");
-  }
-  const target = await validateVersion(projectDir, versionDir);
-  await Deno.writeTextFile(join(target, "main.ts"), source);
+  const request = parseSaveSourceRequest(versionDir, source);
+  const target = await validateVersion(projectDir, request.versionDir);
+  await Deno.writeTextFile(join(target, "main.ts"), request.source);
   return { message: "main.tsを保存しました。" };
 });
 expose("createVersion", async (label: unknown) => {
-  const request = typeof label === "string"
-    ? { agentName: label }
-    : label as Record<string, unknown>;
-  if (!request || typeof request.agentName !== "string" || !request.agentName.trim()) {
-    throw new Error("AI名を入力してください。");
-  }
-  if (request.agentName.trim().length > 40) throw new Error("AI名は40文字以内で入力してください。");
-  const sourceVersion = normalizeSourceVersion(request.sourceVersion);
-  const version = await createVersion(projectDir, request.agentName, sourceVersion);
+  const request = parseCreateVersionRequest(label);
+  const version = await createVersion(projectDir, request.agentName, request.sourceVersion);
   return { version, dashboard: await dashboard(projectDir) };
 });
 
 expose("renameVersion", async (value: unknown) => {
-  if (!value || typeof value !== "object") throw new Error("名前変更の内容が不正です。");
-  const { versionDir, agentName } = value as Record<string, unknown>;
-  if (typeof versionDir !== "string" || !versionDir) {
-    throw new Error("バージョンを選択してください。");
-  }
-  if (
-    typeof agentName !== "string" || !agentName.trim() || agentName.trim().length > 40 ||
-    /[\r\n]/.test(agentName)
-  ) {
-    throw new Error("AI名は1〜40文字で入力してください。");
-  }
-  const version = await renameVersion(projectDir, versionDir, agentName);
+  const request = parseRenameVersionRequest(value);
+  const version = await renameVersion(projectDir, request.versionDir, request.agentName);
   return { version, dashboard: await dashboard(projectDir) };
 });
 
 expose("deleteVersion", async (versionDir: unknown) => {
-  if (typeof versionDir !== "string" || !versionDir) {
-    throw new Error("バージョンを選択してください。");
-  }
-  await deleteVersion(projectDir, versionDir);
+  await deleteVersion(projectDir, parseVersionDirectory(versionDir));
   return { versions: await listVersions(projectDir) };
 });
 

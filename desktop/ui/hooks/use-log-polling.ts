@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { callDesktop } from "../api.ts";
 import type { CodingLogEntry } from "../types.ts";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 
 type MatchState = { logs: string[]; viewerUrl: string; running: boolean };
 type CodingAgentState = { logs: CodingLogEntry[]; versionDir: string };
@@ -13,6 +13,7 @@ export function useLogPolling(
   match: { scrollLogs(): void },
 ) {
   const completedIdsRef = useRef(new Set<string | number>());
+  const { updateChat, updateMatch } = store.getState();
 
   return async function pollLogs() {
     try {
@@ -44,13 +45,13 @@ export function useLogPolling(
       );
       const sourceChanged = [...completedIds].some((id) => !completedIdsRef.current.has(id));
       completedIdsRef.current = completedIds;
-      store.setState({
+      updateMatch({
         matchLogs: matchState.logs,
         matchRunning: matchState.running,
         viewerStates,
         viewerUrl,
-        codingLogs,
       });
+      updateChat({ codingLogs });
       if (sourceChanged && current.selected) await source.reloadSource(current.selected);
       if (current.tab === "match") match.scrollLogs();
       if (current.busy) chat.scroll();

@@ -2,13 +2,15 @@ import { callDesktop } from "../api.ts";
 import { createChatHistoryPayload, limitMessagesByVersion } from "../chat-history.ts";
 import type { DialogActions } from "../dialogs.tsx";
 import type { Message } from "../types.ts";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 
 export function useChatHistory(
   store: AppStore,
   dialogs: DialogActions,
   scroll: (force?: boolean) => void,
 ) {
+  const { updateChat, updateShell } = store.getState();
+
   function currentMessages() {
     const current = store.getState();
     return current.selected ? current.messagesByVersion[current.selected] || [] : [];
@@ -32,7 +34,7 @@ export function useChatHistory(
         return messages.length ? [[version.path, messages] as const] : [];
       }),
     );
-    store.setState({
+    updateChat({
       messagesByVersion: limitMessagesByVersion(
         current.dashboard,
         messagesByVersion,
@@ -62,9 +64,9 @@ export function useChatHistory(
     if (!confirmed) return;
     const messagesByVersion = { ...current.messagesByVersion };
     delete messagesByVersion[current.selected];
-    store.setState({ messagesByVersion });
+    updateChat({ messagesByVersion });
     const saved = await persistHistory();
-    store.setState({
+    updateShell({
       status: saved ? "チャット履歴をクリアしました。" : "チャット履歴を保存できませんでした。",
     });
     scroll(true);

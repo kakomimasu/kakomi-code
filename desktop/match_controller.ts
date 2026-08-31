@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { join } from "@std/path";
 import { createAgentWorkspace } from "./agent_workspace.ts";
 import {
@@ -7,43 +8,35 @@ import {
   findExecutable,
 } from "./command_resolver.ts";
 import { validateModuleGraph } from "./module_graph.ts";
+import { parseInput, versionDirectorySchema } from "./input_validation.ts";
 import { captureOutput, MAX_LOG_TEXT_CHARACTERS } from "./process_output.ts";
 import { stripTerminalSequences } from "./terminal_text.ts";
 import { validateVersion } from "./version_manager.ts";
 
-export type MatchSettings = {
-  agentName: string;
-  aiName: "a1" | "a2" | "a3" | "a4" | "none";
-  board: string;
-  versionDir: string;
-};
+const AGENT_NAME_ERROR = "AI名は1〜40文字で入力してください。";
+const BOARD_ERROR = "盤面を選択してください。";
+const MATCH_AI_NAMES = ["a1", "a2", "a3", "a4", "none"] as const;
+
+const matchSettingsSchema = z.object({
+  agentName: z.string({ error: AGENT_NAME_ERROR })
+    .max(40, { error: AGENT_NAME_ERROR })
+    .regex(/^[^\r\n]*$/, { error: AGENT_NAME_ERROR })
+    .transform((name) => name.trim())
+    .refine((name) => name.length > 0, { error: AGENT_NAME_ERROR }),
+  aiName: z.enum(MATCH_AI_NAMES, { error: "練習相手を選択してください。" }),
+  board: z.string({ error: BOARD_ERROR })
+    .regex(/^[^\r\n]*$/, { error: BOARD_ERROR })
+    .transform((board) => board.trim())
+    .refine((board) => board.length > 0, { error: BOARD_ERROR }),
+  versionDir: versionDirectorySchema,
+}, { error: "設定が不正です。" });
+
+export type MatchSettings = z.output<typeof matchSettingsSchema>;
 
 type MatchLifecycle = "idle" | "preparing" | "running" | "stopping";
 
 export function validateMatchSettings(value: unknown): MatchSettings {
-  if (!value || typeof value !== "object") throw new Error("設定が不正です。");
-  const { agentName, aiName, board, versionDir } = value as Record<string, unknown>;
-  if (
-    typeof agentName !== "string" || !agentName.trim() || agentName.length > 40 ||
-    /[\r\n]/.test(agentName)
-  ) {
-    throw new Error("AI名は1〜40文字で入力してください。");
-  }
-  if (!["a1", "a2", "a3", "a4", "none"].includes(String(aiName))) {
-    throw new Error("練習相手を選択してください。");
-  }
-  if (typeof board !== "string" || !board.trim() || /[\r\n]/.test(board)) {
-    throw new Error("盤面を選択してください。");
-  }
-  if (typeof versionDir !== "string" || !versionDir) {
-    throw new Error("バージョンを選択してください。");
-  }
-  return {
-    agentName: agentName.trim(),
-    aiName: aiName as MatchSettings["aiName"],
-    board: board.trim(),
-    versionDir,
-  };
+  return parseInput(matchSettingsSchema, value);
 }
 
 export function resolveMatchNetworkTarget(value: string | undefined): string {

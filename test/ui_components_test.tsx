@@ -69,7 +69,12 @@ const testDocument = browserWindow.document as unknown as Document;
 const { useRef, useState } = await import("react");
 const { flushSync } = await import("react-dom");
 const { createRoot } = await import("react-dom/client");
-const { createAppStore } = await import("../desktop/ui/hooks/use-app-state.ts");
+const { AppStoreProvider, createAppStore, useAppStore } = await import(
+  "../desktop/ui/hooks/use-app-store.tsx"
+);
+const { selectKakomiViewState } = await import(
+  "../desktop/ui/hooks/use-kakomi-app.ts"
+);
 const { useChat } = await import("../desktop/ui/hooks/use-chat.ts");
 const { useDashboard } = await import("../desktop/ui/hooks/use-dashboard.ts");
 const { useSourceEditor } = await import("../desktop/ui/hooks/use-source-editor.ts");
@@ -102,6 +107,11 @@ const testDialogs = {
     return Promise.resolve(false);
   },
 };
+
+function StoreSelectorHarness() {
+  const view = useAppStore(selectKakomiViewState);
+  return <output data-store-selected>{`${view.selected}:${view.messages.length}`}</output>;
+}
 
 function ChatHookHarness({
   store,
@@ -234,6 +244,29 @@ function DialogHarness() {
     </>
   );
 }
+
+Deno.test("Zustand Providerは空のチャットでもselectorを安定して購読する", () => {
+  const { host, root } = createTestRoot();
+  browserWindow.localStorage.clear();
+  const store = createAppStore();
+  try {
+    flushSync(() =>
+      root.render(
+        <AppStoreProvider store={store}>
+          <StoreSelectorHarness />
+        </AppStoreProvider>,
+      )
+    );
+    const selected = host.querySelector<HTMLOutputElement>("[data-store-selected]");
+    assertExists(selected);
+    assertEquals(selected.textContent, ":0");
+
+    flushSync(() => store.getState().updateWorkspace({ selected: "versions/test-agent" }));
+    assertEquals(selected.textContent, "versions/test-agent:0");
+  } finally {
+    flushSync(() => root.unmount());
+  }
+});
 
 Deno.test("StatusTextは状態の変化を読み上げ対象にする", () => {
   const { host, root } = createTestRoot();

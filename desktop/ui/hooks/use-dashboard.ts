@@ -1,5 +1,5 @@
 import type { DialogActions } from "../dialogs.tsx";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 import { type DashboardSourceActions, useDashboardNavigation } from "./use-dashboard-navigation.ts";
 import { useVersionActions } from "./use-version-actions.ts";
 

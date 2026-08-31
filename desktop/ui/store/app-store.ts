@@ -1,4 +1,4 @@
-import { useRef, useSyncExternalStore } from "react";
+import { createStore, type StoreApi } from "zustand";
 import type {
   CodingAgent,
   CodingLogEntry,
@@ -13,24 +13,40 @@ const SAVED_MODELS_KEY = "kakomimasu-models";
 
 export type Models = Record<CodingAgent, string>;
 
-export type AppState = {
+export type ShellState = {
+  status: string;
+  busy: boolean;
+};
+
+export type WorkspaceState = {
   dashboard: Dashboard;
   selected: string;
   tab: UtilityTab;
+};
+
+export type ChatState = {
   agent: CodingAgent;
   models: Models;
   messagesByVersion: MessagesByVersion;
   codingLogs: CodingLogEntry[];
   codingAgentResult: { versionDir: string; text: string } | null;
-  matchLogs: string[];
+  idea: string;
+  codingAgentRunning: boolean;
+  stopping: boolean;
+};
+
+export type SourceState = {
   source: string;
   savedSource: string;
   sourceDirty: boolean;
   sourceStatus: string;
-  idea: string;
-  status: string;
+};
+
+export type MatchState = {
+  matchLogs: string[];
   matchStatus: string;
   matchRunning: boolean;
+  matchStopping: boolean;
   viewerUrl: string;
   viewerOpen: boolean;
   viewerLoading: boolean;
@@ -38,19 +54,20 @@ export type AppState = {
   matchVersion: string;
   ai: string;
   board: string;
-  busy: boolean;
-  codingAgentRunning: boolean;
-  stopping: boolean;
-  matchStopping: boolean;
 };
 
-type StateUpdate = Partial<AppState> | ((state: AppState) => Partial<AppState>);
+export type AppState = ShellState & WorkspaceState & ChatState & SourceState & MatchState;
 
-export type AppStore = {
-  getState(): AppState;
-  setState(update: StateUpdate): void;
-  subscribe(listener: (state: AppState) => void): () => void;
+export type AppActions = {
+  updateShell(patch: Partial<ShellState>): void;
+  updateWorkspace(patch: Partial<WorkspaceState>): void;
+  updateChat(patch: Partial<ChatState>): void;
+  updateSource(patch: Partial<SourceState>): void;
+  updateMatch(patch: Partial<MatchState>): void;
 };
+
+export type AppStoreState = AppState & AppActions;
+export type AppStore = StoreApi<AppStoreState>;
 
 function savedAgent(): CodingAgent {
   const saved = localStorage.getItem(SAVED_AGENT_KEY);
@@ -112,28 +129,14 @@ function initialState(): AppState {
 }
 
 export function createAppStore(): AppStore {
-  let state = initialState();
-  const listeners = new Set<(state: AppState) => void>();
-  return {
-    getState: () => state,
-    setState(update) {
-      const patch = typeof update === "function" ? update(state) : update;
-      state = { ...state, ...patch };
-      for (const listener of listeners) listener(state);
-    },
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-}
-
-export function useAppState() {
-  const storeRef = useRef<AppStore | null>(null);
-  if (!storeRef.current) storeRef.current = createAppStore();
-  const store = storeRef.current;
-  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
-  return { state, store };
+  return createStore<AppStoreState>()((set) => ({
+    ...initialState(),
+    updateShell: (patch) => set(patch),
+    updateWorkspace: (patch) => set(patch),
+    updateChat: (patch) => set(patch),
+    updateSource: (patch) => set(patch),
+    updateMatch: (patch) => set(patch),
+  }));
 }
 
 export function saveAgentPreference(agent: CodingAgent) {

@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { CHAT_HISTORY_LIMITS, createChatHistoryPayload } from "../desktop/ui/chat-history.ts";
-import { createAppStore } from "../desktop/ui/hooks/use-app-state.ts";
+import { createAppStore } from "../desktop/ui/hooks/use-app-store.tsx";
 import { canApplyLoadedSource } from "../desktop/ui/source-load.ts";
 
 Deno.test("React用ストアは共有状態を更新して購読者へ通知する", () => {
@@ -11,11 +11,12 @@ Deno.test("React用ストアは共有状態を更新して購読者へ通知す�
       value: { getItem: () => null, setItem: () => {} },
     });
     const store = createAppStore();
+    assertEquals(store.getInitialState().selected, "");
     const selectedValues: string[] = [];
     const unsubscribe = store.subscribe((state) => selectedValues.push(state.selected));
 
-    store.setState({ selected: "versions/test-agent" });
-    store.setState((state) => ({ busy: !state.busy }));
+    store.getState().updateWorkspace({ selected: "versions/test-agent" });
+    store.getState().updateShell({ busy: true });
 
     assertEquals(store.getState().selected, "versions/test-agent");
     assertEquals(store.getState().busy, true);

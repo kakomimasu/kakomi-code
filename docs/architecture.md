@@ -6,7 +6,8 @@
 Desktopと内蔵Chromium（CEF）で動くローカルデスクトップアプリです。画面はReact、CSS、TypeScriptで構成し、Deno側がローカルAPI、バージョン管理、対戦プロセス、Codex
 / Claude Code / OpenCodeの起動を担当します。
 
-開発、テスト、画面生成、配布ビルドはDenoだけで実行します。React、Monaco Editorなどのnpmパッケージも
+開発、テスト、画面生成、配布ビルドはDenoだけで実行します。React、Monaco
+Editor、Zod、Zustandなどのnpmパッケージも
 Denoのキャッシュから直接解決するため、Node.js、npmコマンド、`node_modules/` は必要ありません。
 
 ```mermaid
@@ -36,6 +37,7 @@ flowchart LR
 | `scripts/build_ui.ts`                 | React画面、通常CSS、Monaco Editorを `dist/` へまとめる                 |
 | `desktop/index.html`                  | React画面のHTMLとAPIトークンの埋め込み先                               |
 | `desktop/app.ts`                      | アプリ起動、APIハンドラー、ローカルHTTP配信の配線                      |
+| `desktop/api_requests.ts`             | ローカルAPIへ渡す固定形式の入力スキーマを定義する                      |
 | `desktop/application_menu.ts`         | ネイティブメニューと終了ショートカットを構成する                       |
 | `desktop/app_paths.ts`                | ソース版・配布版の作業フォルダとテンプレートを解決する                 |
 | `desktop/command_resolver.ts`         | Deno、Codex、Claude Code、OpenCodeの実行ファイルをユーザー環境から探す |
@@ -54,9 +56,11 @@ flowchart LR
 | `desktop/process_output.ts`           | 子プロセス出力の無害化と保持サイズ上限を共通化する                     |
 | `desktop/process_tree.ts`             | コーディングAIと、その子孫プロセスをまとめて停止する                   |
 | `desktop/ui.tsx`, `desktop/ui/`       | Reactの起動処理、画面コンポーネント、状態管理用hooks                   |
+| `desktop/ui/store/app-store.ts`       | 画面状態を用途別sliceと更新actionへ分けたZustand store                 |
 | `desktop/version_manager.ts`          | バージョンの初期化、一覧、作成、検証、名前変更、削除                   |
 | `desktop/chat_history.ts`             | チャット履歴の検証と原子的な保存                                       |
 | `desktop/http_security.ts`            | ループバック・同一オリジン・APIトークンの検証                          |
+| `desktop/input_validation.ts`         | Zodスキーマの検証結果を初心者向けの日本語エラーへ変換する              |
 | `desktop/local_server.ts`             | ローカルAPIのルーティングと静的ファイル配信                            |
 | `desktop/static_assets.ts`            | `dist/` 内の安全なパスとContent-Typeを検証                             |
 | `desktop/terminal_text.ts`            | 端末出力からANSI制御シーケンスを除去                                   |
@@ -84,11 +88,16 @@ flowchart LR
 ## 画面とローカルAPI
 
 `desktop/ui/api.ts` はDeno Desktopの `bindings` を優先して呼び出し、通常のブラウザでは
-`/api/bindings/<name>` へのPOSTへフォールバックします。共有する画面状態はReactの
-`useSyncExternalStore` と小さなローカルストアで管理し、 `desktop/ui/hooks/` のReact
-hooksが用途別の操作と副作用を担当します。Reactで描画する画面と Monaco Editorは
+`/api/bindings/<name>` へのPOSTへフォールバックします。共有する画面状態はアプリ単位で生成する
+Zustandのvanilla storeで管理します。状態は `workspace`、`chat`、`source`、`match`、`shell`
+のsliceへ分け、画面はselectorで必要な値だけを購読します。 `desktop/ui/hooks/` のReact hooksはslice
+actionを使って用途別の操作と副作用を担当します。Reactで描画する画面と Monaco Editorは
 `prefers-color-scheme` を監視し、OSのライト・ダーク設定へ追従します。Deno Desktopの `window.bind`
 とHTTP経由の両方で同じハンドラーを公開します。
+
+固定形式のAPI引数、改善依頼、対戦設定、画面サイズはZodスキーマで検証し、検証後の型も同じスキーマから
+生成します。利用者にはスキーマ内部のエラーではなく、最初に該当した分かりやすい日本語メッセージを返します。
+チャット履歴の総文字数や件数のように、入力全体をまたぐ上限は専用の検証処理で管理します。
 
 `use-kakomi-app.ts`
 は画面へ渡す値を組み立て、ダッシュボード、チャット、ソースエディター、対戦、ログ取得、
@@ -198,6 +207,7 @@ OpenCodeは外部プラグインを読み込まない `--pure` モードで、`m
 - `test/agent_workspace_test.ts`: コーディングAIの一時作業フォルダと反映対象
 - `test/http_security_test.ts`: ホスト、Origin、APIトークン
 - `test/request_body_test.ts`: ローカルAPIのJSON本文サイズ上限
+- `test/api_requests_test.ts`: ローカルAPI引数のZodスキーマと日本語エラー
 - `test/run_script_test.ts`: `.env` の有無と古いBashでの起動
 - `test/main_test.ts`: 初期AIの公開動作
 - `test/app_paths_test.ts`: 配布版の作業フォルダと同梱テンプレートの展開

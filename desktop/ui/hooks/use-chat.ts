@@ -1,7 +1,7 @@
 import { type RefObject, type SyntheticEvent, useRef } from "react";
 import type { DialogActions } from "../dialogs.tsx";
 import { nextFrame } from "./helpers.ts";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 import { useChatComposer } from "./use-chat-composer.ts";
 import { useChatHistory } from "./use-chat-history.ts";
 import { type ImprovementSourceActions, useImprovement } from "./use-improvement.ts";

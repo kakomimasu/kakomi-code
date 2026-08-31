@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { callDesktop } from "../api.ts";
 import { limitMessagesByVersion } from "../chat-history.ts";
 import { errorMessage } from "./helpers.ts";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 
 export type ImprovementSourceActions = {
   loadSource(versionPath?: string): Promise<void>;
@@ -16,6 +16,7 @@ export function useImprovement(
   scroll: (force?: boolean) => void,
 ) {
   const improving = useRef(false);
+  const { updateChat, updateShell } = store.getState();
 
   async function improve() {
     const initial = store.getState();
@@ -40,14 +41,13 @@ export function useImprovement(
         versionDir,
       );
       const messages = pendingMessages[versionDir] || [];
-      store.setState({
+      updateChat({
         messagesByVersion: pendingMessages,
         idea: "",
-        busy: true,
         codingAgentRunning: true,
         codingAgentResult: null,
-        status: "AIを起動しています…",
       });
+      updateShell({ busy: true, status: "AIを起動しています…" });
       started = true;
       scroll(true);
       await persistHistory();
@@ -58,7 +58,7 @@ export function useImprovement(
           [{ idea, versionDir, agent: active.agent, model: active.models[active.agent] || "" }],
         );
         const latest = store.getState();
-        store.setState({
+        updateChat({
           messagesByVersion: limitMessagesByVersion(
             latest.dashboard,
             {
@@ -70,7 +70,7 @@ export function useImprovement(
           codingAgentResult: { versionDir, text: result.output },
         });
         const saved = await persistHistory();
-        store.setState({
+        updateShell({
           status: result.cancelled
             ? saved ? "改善を停止しました。" : "改善を停止しましたが、履歴を保存できませんでした。"
             : saved
@@ -80,7 +80,7 @@ export function useImprovement(
       } catch (error) {
         const message = `エラー: ${errorMessage(error)}`;
         const latest = store.getState();
-        store.setState({
+        updateChat({
           messagesByVersion: limitMessagesByVersion(
             latest.dashboard,
             {
@@ -92,7 +92,7 @@ export function useImprovement(
           codingAgentResult: { versionDir, text: message },
         });
         const saved = await persistHistory();
-        store.setState({
+        updateShell({
           status: message + (saved ? "" : "（チャット履歴も保存できませんでした）"),
         });
       }
@@ -102,7 +102,8 @@ export function useImprovement(
       } finally {
         improving.current = false;
         if (started) {
-          store.setState({ busy: false, codingAgentRunning: false });
+          updateShell({ busy: false });
+          updateChat({ codingAgentRunning: false });
           scroll();
         }
       }
@@ -112,16 +113,17 @@ export function useImprovement(
   async function cancelImprove() {
     const current = store.getState();
     if (!current.codingAgentRunning || current.stopping) return;
-    store.setState({ stopping: true, status: "コーディングAIの停止を要求しています…" });
+    updateChat({ stopping: true });
+    updateShell({ status: "コーディングAIの停止を要求しています…" });
     try {
       const result = await callDesktop<{ message: string }>("stopCodingAgent");
-      if (store.getState().codingAgentRunning) store.setState({ status: result.message });
+      if (store.getState().codingAgentRunning) updateShell({ status: result.message });
     } catch (error) {
       if (store.getState().codingAgentRunning) {
-        store.setState({ status: `エラー: ${errorMessage(error)}` });
+        updateShell({ status: `エラー: ${errorMessage(error)}` });
       }
     } finally {
-      store.setState({ stopping: false });
+      updateChat({ stopping: false });
     }
   }
 

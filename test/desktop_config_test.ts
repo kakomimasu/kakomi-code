@@ -23,11 +23,15 @@ Deno.test("画面はReactとDenoのバンドラーだけで起動する", async 
   const monacoHook = await Deno.readTextFile("desktop/ui/hooks/use-monaco-editor.ts");
   const utilityPane = await Deno.readTextFile("desktop/ui/utility.tsx");
   const style = await Deno.readTextFile("desktop/style.css");
-  const store = await Deno.readTextFile("desktop/ui/hooks/use-app-state.ts");
+  const storeHook = await Deno.readTextFile("desktop/ui/hooks/use-app-store.tsx");
+  const store = await Deno.readTextFile("desktop/ui/store/app-store.ts");
 
   assertStringIncludes(config.imports.react, "19.2");
   assertStringIncludes(config.imports["react-dom"], "19.2");
   assertStringIncludes(config.imports["monaco-editor"], "0.56");
+  assertStringIncludes(config.imports.zod, "4.");
+  assertStringIncludes(config.imports.zustand, "5.");
+  assertStringIncludes(config.imports["zustand/shallow"], "5.");
   assertStringIncludes(config.tasks["ui:build"], "scripts/build_ui.ts");
   assertFalse(JSON.stringify(config.tasks).includes("node "));
   assertFalse(JSON.stringify(config.tasks).includes("npm "));
@@ -64,8 +68,13 @@ Deno.test("画面はReactとDenoのバンドラーだけで起動する", async 
   assertStringIncludes(monacoHook, "diagnosticCodesToIgnore: [2307, 2792]");
   assertStringIncludes(monacoHook, "module: monaco.languages.typescript.ModuleKind.ESNext");
   assertStringIncludes(monacoHook, '"file:///deno-env.d.ts"');
-  assertStringIncludes(store, "useSyncExternalStore");
-  assertFalse(store.includes("zustand"));
+  assertStringIncludes(store, "createStore<AppStoreState>()");
+  assertStringIncludes(store, "updateWorkspace");
+  assertStringIncludes(store, "updateChat");
+  assertStringIncludes(storeHook, "<AppStoreContext.Provider");
+  assertStringIncludes(storeHook, "useStore(useAppStoreApi(), useShallow(selector))");
+  assertFalse(store.includes("useSyncExternalStore"));
+  assertFalse(storeHook.includes("useSyncExternalStore"));
   assertFalse(style.includes("tailwindcss"));
   assertFalse(dashboardHook.includes("prompt("));
   assertFalse(dashboardHook.includes("confirm("));

@@ -1,6 +1,7 @@
 import { opencodeConfig } from "./opencode_adapter.ts";
 
-export type CodingAgent = "codex" | "claude" | "opencode";
+export const CODING_AGENTS = ["codex", "claude", "opencode"] as const;
+export type CodingAgent = typeof CODING_AGENTS[number];
 
 export type CodingAgentCommand = {
   commandName: string;
@@ -13,7 +14,7 @@ export type CodingAgentCommand = {
 };
 
 export function isCodingAgent(value: unknown): value is CodingAgent {
-  return value === "codex" || value === "claude" || value === "opencode";
+  return CODING_AGENTS.some((agent) => agent === value);
 }
 
 export function codingAgentCommand(

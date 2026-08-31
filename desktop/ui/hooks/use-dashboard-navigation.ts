@@ -2,7 +2,7 @@ import { callDesktop } from "../api.ts";
 import type { Dashboard, UtilityTab } from "../types.ts";
 import { loadViewerState, saveViewerState } from "../viewer.ts";
 import { nextFrame } from "./helpers.ts";
-import type { AppStore } from "./use-app-state.ts";
+import type { AppStore } from "./use-app-store.tsx";
 
 export type DashboardSourceActions = {
   loadSource(versionPath?: string): Promise<void>;
@@ -16,6 +16,8 @@ export function useDashboardNavigation(
   source: DashboardSourceActions,
   scrollChat: (force?: boolean) => void,
 ) {
+  const { updateChat, updateMatch, updateSource, updateWorkspace } = store.getState();
+
   async function refresh(preferred = "") {
     const dashboard = await callDesktop<Dashboard>("getDashboard");
     const current = store.getState();
@@ -29,9 +31,8 @@ export function useDashboardNavigation(
           current.viewerOpen,
         );
         const viewer = loadViewerState(viewerStates, selected);
-        store.setState({
-          dashboard,
-          selected,
+        updateWorkspace({ dashboard, selected });
+        updateMatch({
           viewerStates,
           viewerUrl: viewer.url,
           viewerOpen: viewer.open,
@@ -40,7 +41,7 @@ export function useDashboardNavigation(
         return;
       }
     }
-    store.setState({ dashboard });
+    updateWorkspace({ dashboard });
   }
 
   async function selectVersion(path: string) {
@@ -54,18 +55,20 @@ export function useDashboardNavigation(
       current.viewerOpen,
     );
     const viewer = loadViewerState(viewerStates, path);
-    store.setState({
-      selected: path,
+    updateWorkspace({ selected: path });
+    updateMatch({
       viewerStates,
       viewerUrl: viewer.url,
       viewerOpen: viewer.open,
       viewerLoading: viewer.open,
+    });
+    updateSource({
       source: "",
       savedSource: "",
       sourceDirty: false,
       sourceStatus: "",
-      codingLogs: [],
     });
+    updateChat({ codingLogs: [] });
     source.clear();
     scrollChat(true);
     if (current.tab === "source") await source.loadSource(path);
@@ -80,7 +83,7 @@ export function useDashboardNavigation(
       }
       return;
     }
-    store.setState({ tab });
+    updateWorkspace({ tab });
     if (tab === "source") {
       if (!current.sourceDirty) await source.loadSource();
       void nextFrame(source.layout);
