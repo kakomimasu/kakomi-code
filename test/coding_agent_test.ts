@@ -1,14 +1,13 @@
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import { codingAgentCommand, isCodingAgent } from "../desktop/coding_agent.ts";
 import {
-  codingAgentCommand,
   createOpenCodeWorkspace,
-  isCodingAgent,
   opencodeConfig,
   openCodeCorrectionPrompt,
   parseOpenCodeEvent,
   parseOpenCodeModels,
   validateOpenCodeWorkspace,
-} from "../desktop/coding_agent.ts";
+} from "../desktop/opencode_adapter.ts";
 
 Deno.test("OpenCodeをコーディングAIとして受け付ける", () => {
   assertEquals(isCodingAgent("opencode"), true);

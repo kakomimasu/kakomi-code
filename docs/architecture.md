@@ -35,19 +35,29 @@ flowchart LR
 | `.github/workflows/release.yml`       | タグから各OS向け配布ファイルとGitHub Releaseを作る                     |
 | `scripts/build_ui.ts`                 | React画面、通常CSS、Monaco Editorを `dist/` へまとめる                 |
 | `desktop/index.html`                  | React画面のHTMLとAPIトークンの埋め込み先                               |
-| `desktop/app.ts`                      | アプリ起動、APIハンドラー、対戦・コーディングAIの子プロセス管理        |
+| `desktop/app.ts`                      | アプリ起動、APIハンドラー、ローカルHTTP配信の配線                      |
 | `desktop/application_menu.ts`         | ネイティブメニューと終了ショートカットを構成する                       |
 | `desktop/app_paths.ts`                | ソース版・配布版の作業フォルダとテンプレートを解決する                 |
 | `desktop/command_resolver.ts`         | Deno、Codex、Claude Code、OpenCodeの実行ファイルをユーザー環境から探す |
-| `desktop/coding_agent.ts`             | コーディングAIごとの起動引数とOpenCodeの実行時権限を組み立てる         |
+| `desktop/coding_agent.ts`             | コーディングAIごとの起動引数を組み立てる                               |
+| `desktop/coding_agent_controller.ts`  | 改善依頼、作業フォルダ、検証、停止までの実行フローを管理する           |
 | `desktop/coding_agent_environment.ts` | コーディングAIへ渡す環境変数を必要なものだけに限定する                 |
+| `desktop/coding_agent_log.ts`         | CLIイベントを共通の画面用ログへ整形する                                |
+| `desktop/coding_agent_output.ts`      | CLIのJSON出力を読み取り、AI別イベントをログへ反映する                  |
+| `desktop/coding_agent_process.ts`     | コーディングAIと検証用の子プロセスを安全な環境で実行する               |
+| `desktop/coding_agent_reference.ts`   | クライアントAPIの参照ソースを取得・キャッシュする                      |
 | `desktop/coding_agent_run.ts`         | 改善処理全体の停止状態と実行中プロセスを管理する                       |
+| `desktop/match_controller.ts`         | 対戦の準備、実行、停止、一時作業フォルダを管理する                     |
 | `desktop/module_graph.ts`             | 対戦AIの静的importを実行前に検証する                                   |
+| `desktop/opencode_adapter.ts`         | OpenCodeの権限、作業領域、モデル、イベント形式を扱う                   |
+| `desktop/opencode_validator.ts`       | OpenCodeのmodule graph・型検証と再修正を管理する                       |
+| `desktop/process_output.ts`           | 子プロセス出力の無害化と保持サイズ上限を共通化する                     |
 | `desktop/process_tree.ts`             | コーディングAIと、その子孫プロセスをまとめて停止する                   |
 | `desktop/ui.tsx`, `desktop/ui/`       | Reactの起動処理、画面コンポーネント、状態管理用hooks                   |
 | `desktop/version_manager.ts`          | バージョンの初期化、一覧、作成、検証、名前変更、削除                   |
 | `desktop/chat_history.ts`             | チャット履歴の検証と原子的な保存                                       |
 | `desktop/http_security.ts`            | ループバック・同一オリジン・APIトークンの検証                          |
+| `desktop/local_server.ts`             | ローカルAPIのルーティングと静的ファイル配信                            |
 | `desktop/static_assets.ts`            | `dist/` 内の安全なパスとContent-Typeを検証                             |
 | `desktop/terminal_text.ts`            | 端末出力からANSI制御シーケンスを除去                                   |
 | `desktop/window_geometry.ts`          | 利用可能な画面領域とウィンドウサイズの検証                             |
@@ -82,7 +92,8 @@ hooksが用途別の操作と副作用を担当します。Reactで描画する�
 
 `use-kakomi-app.ts`
 は画面へ渡す値を組み立て、ダッシュボード、チャット、ソースエディター、対戦、ログ取得、
-ペイン幅の各hookへ処理を委譲します。各コンポーネントは状態を直接変更せず、hookが公開する更新関数を
+ペイン幅の各hookへ処理を委譲します。チャットは履歴、改善実行、入力操作へ、ダッシュボードは
+ナビゲーションとバージョン操作へさらに分けています。各コンポーネントは状態を直接変更せず、hookが公開する更新関数を
 呼び出します。
 
 HTTP経由では次をすべて満たす必要があります。
@@ -131,7 +142,9 @@ graphを検査し、ローカルimportがその一時フォルダー内にある
 チャット欄をsandbox付きiframeへ切り替え、検証済みの `https://kakomimasu.com/game`
 だけを開始URLとして表示します。
 
-対戦は画面から途中停止できます。停止要求後も終了しない場合は3秒後に強制停止します。対戦中は実行対象の版を
+対戦状態は `idle`、`preparing`、`running`、`stopping`
+のいずれかで管理します。対戦は画面から途中停止でき、
+停止要求後も終了しない場合は3秒後に強制停止します。対戦中は実行対象の版を
 名前変更、複製、削除できません。
 
 ## コーディングAI
@@ -191,8 +204,13 @@ OpenCodeは外部プラグインを読み込まない `--pure` モードで、`m
 - `test/command_resolver_test.ts`: CLI探索と依存取得先の制限
 - `test/coding_agent_test.ts`: OpenCodeの起動引数とファイル・ツール権限
 - `test/coding_agent_environment_test.ts`: コーディングAIへ渡す環境変数
+- `test/coding_agent_controller_test.ts`, `test/coding_agent_reference_test.ts`:
+  改善依頼、プロンプトの制約、参照ソース取得
+- `test/coding_agent_output_test.ts`, `test/process_output_test.ts`: CLIイベントと出力上限
 - `test/coding_agent_run_test.ts`, `test/process_tree_test.ts`:
   起動前からの停止状態とプロセスツリー停止
+- `test/match_controller_test.ts`: 対戦設定と通信先の検証
+- `test/local_server_test.ts`: ローカルAPIの統合的な認証とハンドラー呼び出し
 - `test/module_graph_test.ts`: 対戦AIのローカル・リモートimport境界
 
 ローカルとCIの共通入口は `deno task verify` です。
