@@ -1,11 +1,13 @@
 import type { KeyboardEvent, PointerEventHandler, RefObject, SyntheticEvent } from "react";
+import type { ChatMessage as Message } from "../shared/chat-history.ts";
+
+export type { ChatMessage as Message } from "../shared/chat-history.ts";
 
 export type CodingAgent = "codex" | "claude" | "opencode";
 export type UtilityTab = "source" | "match";
 
 export type Version = { path: string; name: string };
 export type Dashboard = { projectDir: string; versions: Version[] };
-export type Message = { role: "user" | "assistant"; text: string };
 export type MessagesByVersion = Record<string, Message[]>;
 
 export type CodingLogEntry = {

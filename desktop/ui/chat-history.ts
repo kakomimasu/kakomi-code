@@ -1,10 +1,7 @@
+import { CHAT_HISTORY_LIMITS } from "../shared/chat-history.ts";
 import type { Dashboard, Message, MessagesByVersion } from "./types.ts";
 
-export const CHAT_HISTORY_LIMITS = {
-  versions: 200,
-  messagesPerVersion: 1_000,
-  totalCharacters: 10_000_000,
-} as const;
+export { CHAT_HISTORY_LIMITS } from "../shared/chat-history.ts";
 
 function prioritizedVersions(dashboard: Dashboard, preferredPath: string) {
   const versions = [...dashboard.versions].reverse();

@@ -62,6 +62,7 @@ flowchart LR
 | `desktop/http_security.ts`            | ループバック・同一オリジン・APIトークンの検証                          |
 | `desktop/input_validation.ts`         | Zodスキーマの検証結果を初心者向けの日本語エラーへ変換する              |
 | `desktop/local_server.ts`             | ローカルAPIのルーティングと静的ファイル配信                            |
+| `desktop/workspace_api.ts`            | バージョン・ソース・履歴のAPIを構成し、ネイティブとHTTPで共有する      |
 | `desktop/static_assets.ts`            | `dist/` 内の安全なパスとContent-Typeを検証                             |
 | `desktop/terminal_text.ts`            | 端末出力からANSI制御シーケンスを除去                                   |
 | `desktop/window_geometry.ts`          | 利用可能な画面領域とウィンドウサイズの検証                             |
@@ -98,6 +99,8 @@ actionを使って用途別の操作と副作用を担当します。Reactで描
 固定形式のAPI引数、改善依頼、対戦設定、画面サイズはZodスキーマで検証し、検証後の型も同じスキーマから
 生成します。利用者にはスキーマ内部のエラーではなく、最初に該当した分かりやすい日本語メッセージを返します。
 チャット履歴の総文字数や件数のように、入力全体をまたぐ上限は専用の検証処理で管理します。
+チャットメッセージの型と履歴の上限値は `desktop/shared/chat-history.ts`
+に集約し、画面側の履歴整理と保存時の検証で共有します。このモジュールはブラウザとDenoの両方で利用します。
 
 `use-kakomi-app.ts`
 は画面へ渡す値を組み立て、ダッシュボード、チャット、ソースエディター、対戦、ログ取得、
@@ -197,6 +200,16 @@ OpenCodeは外部プラグインを読み込まない `--pure` モードで、`m
 チャット履歴は読み込み前にファイルサイズを確認し、読み込み後も版数、メッセージ数、総文字数を検証します。保存時は
 画面側でも同じ上限へ収め、一時ファイルへ書いた後で置き換えます。
 
+画面内の履歴はバージョンのパスをキーに保持し、`desktop/ui/chat-history.ts` の
+`createChatHistoryPayload`
+が保存用にバージョン名のキーへ変換します。画面側で上限内へ整理したデータも、
+`desktop/chat_history.ts` で検証してから保存します。
+
+`desktop/ui/hooks/use-improvement.ts` の `recordResult`
+は、改善の成功・停止・失敗時に結果を履歴へ追加し、上限を適用して画面状態を更新した後、保存を試みます。
+履歴の保存に失敗しても画面上の結果は保持し、保存できなかったことを表示します。改善処理の終了時には、
+対象のソースを再読み込みし、実行中の状態を解除します。
+
 ソース版の `<project>` はリポジトリです。配布版では `~/.kakomimasu-ai-starter/workspace/`
 を使うため、アプリのインストール先へ利用者データを書き込みません。
 
@@ -204,6 +217,9 @@ OpenCodeは外部プラグインを読み込まない `--pure` モードで、`m
 
 - `test/version_manager_test.ts`: ファイル境界、連番、名前変更、削除
 - `test/chat_history_test.ts`: 入力検証、保存、破損時の復旧
+- `test/ui_store_test.ts`: 画面状態、ソース読み込みの競合、画面で整理した履歴と保存側の上限の整合性
+- `test/ui_components_test.tsx`:
+  React画面とhooks、改善の成功・停止・失敗、履歴保存失敗時の結果保持と実行中状態の解除
 - `test/agent_workspace_test.ts`: コーディングAIの一時作業フォルダと反映対象
 - `test/http_security_test.ts`: ホスト、Origin、APIトークン
 - `test/request_body_test.ts`: ローカルAPIのJSON本文サイズ上限
@@ -224,3 +240,11 @@ OpenCodeは外部プラグインを読み込まない `--pure` モードで、`m
 - `test/module_graph_test.ts`: 対戦AIのローカル・リモートimport境界
 
 ローカルとCIの共通入口は `deno task verify` です。
+
+ブラウザE2Eは `deno task test:e2e` で別途実行し、CIでも通常の検証に続けて実行します。
+`e2e/fixture.ts` がテスト専用の一時フォルダーとランダムなポートのループバックサーバーを用意し、
+`desktop/workspace_api.ts` と `desktop/local_server.ts`
+を使って本番と同じファイル操作・認証を検証します。
+PlaywrightでChromiumを操作し、実際のReact画面とMonacoから永続化までを通します。
+ネイティブウィンドウと外部プロセスの状態取得だけをテスト用の固定応答に置き換え、外部接続は拒否します。
+CEF固有の挙動や実際のAI改善・対戦は、このE2Eでは検証しません。

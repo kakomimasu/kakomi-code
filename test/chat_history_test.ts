@@ -93,6 +93,20 @@ Deno.test("検証済みチャット履歴は通常のオブジェクトから分
   assertEquals(history.version, [{ role: "user", text: "作戦" }]);
 });
 
+Deno.test("チャット履歴の総文字数は複数の版を合計して制限する", () => {
+  const history = {
+    first: [{ role: "user" as const, text: "あ".repeat(5_000_000) }],
+    second: [{ role: "assistant" as const, text: "い".repeat(5_000_000) }],
+  };
+  assertEquals(validateChatHistory(history), history);
+  history.second[0].text += "う";
+  assertThrows(
+    () => validateChatHistory(history),
+    Error,
+    "チャット履歴が大きすぎます。",
+  );
+});
+
 Deno.test("チャット履歴の一時ファイルを保存後に残さない", async () => {
   const directory = await Deno.makeTempDir();
   const file = `${directory}/chat-history.json`;

@@ -1,26 +1,13 @@
 import { join } from "@std/path";
-import {
-  MAX_SOURCE_CHARACTERS,
-  parseCreateVersionRequest,
-  parseRenameVersionRequest,
-  parseSaveSourceRequest,
-  parseVersionDirectory,
-} from "./api_requests.ts";
+import { MAX_SOURCE_CHARACTERS } from "./api_requests.ts";
 import { applicationMenu } from "./application_menu.ts";
 import { resolveProjectDirectory, resolveSettingsDir } from "./app_paths.ts";
-import { loadChatHistory, saveChatHistory } from "./chat_history.ts";
 import { CodingAgentController } from "./coding_agent_controller.ts";
 import { type ApiHandler, createLocalRequestHandler } from "./local_server.ts";
 import { MatchController } from "./match_controller.ts";
 import { validateWindowGeometry } from "./window_geometry.ts";
-import {
-  createVersion,
-  deleteVersion,
-  initializeProject,
-  listVersions,
-  renameVersion,
-  validateVersion,
-} from "./version_manager.ts";
+import { initializeProject } from "./version_manager.ts";
+import { createWorkspaceApi } from "./workspace_api.ts";
 
 const bundledTemplatePath = join(
   import.meta.dirname ?? "desktop",
@@ -42,14 +29,6 @@ const apiToken = crypto.randomUUID();
 async function saveProjectDir(projectDir: string) {
   await Deno.mkdir(settingsDir, { recursive: true });
   await Deno.writeTextFile(projectFile, projectDir);
-}
-
-async function dashboard(projectDir: string) {
-  const versions = await listVersions(projectDir);
-  return {
-    projectDir,
-    versions: versions.filter((version) => version.ready),
-  };
 }
 
 const projectDir = await resolveProjectDirectory({
@@ -110,43 +89,13 @@ expose("fitWindowToScreen", (value: unknown) => {
   window.setPosition(geometry.x, geometry.y);
   return geometry;
 });
-expose("getDashboard", () => dashboard(projectDir));
+for (const [name, handler] of createWorkspaceApi({ projectDir, chatHistoryFile })) {
+  expose(name, handler);
+}
 expose("getOpenCodeModels", () => codingAgentController.getOpenCodeModels());
-expose("getChatHistory", () => loadChatHistory(chatHistoryFile));
-expose("saveChatHistory", async (history: unknown) => {
-  await saveChatHistory(chatHistoryFile, history);
-  return { message: "チャット履歴を保存しました。" };
-});
 expose("getMatchLogs", () => matchController.getState());
 expose("getCodingAgentLogs", () => codingAgentController.getState());
 expose("stopCodingAgent", () => codingAgentController.stop());
-expose("getSource", async (versionDir: unknown) => {
-  const target = await validateVersion(projectDir, parseVersionDirectory(versionDir));
-  return await Deno.readTextFile(join(target, "main.ts"));
-});
-expose("saveSource", async (versionDir: unknown, source: unknown) => {
-  const request = parseSaveSourceRequest(versionDir, source);
-  const target = await validateVersion(projectDir, request.versionDir);
-  await Deno.writeTextFile(join(target, "main.ts"), request.source);
-  return { message: "main.tsを保存しました。" };
-});
-expose("createVersion", async (label: unknown) => {
-  const request = parseCreateVersionRequest(label);
-  const version = await createVersion(projectDir, request.agentName, request.sourceVersion);
-  return { version, dashboard: await dashboard(projectDir) };
-});
-
-expose("renameVersion", async (value: unknown) => {
-  const request = parseRenameVersionRequest(value);
-  const version = await renameVersion(projectDir, request.versionDir, request.agentName);
-  return { version, dashboard: await dashboard(projectDir) };
-});
-
-expose("deleteVersion", async (versionDir: unknown) => {
-  await deleteVersion(projectDir, parseVersionDirectory(versionDir));
-  return { versions: await listVersions(projectDir) };
-});
-
 expose("stopMatch", () => matchController.stop());
 expose("startMatch", (value: unknown) => {
   if (shuttingDown) throw new Error("アプリを終了しています。");

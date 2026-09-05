@@ -1,7 +1,7 @@
 import { dirname } from "@std/path";
+import { CHAT_HISTORY_LIMITS, type ChatHistory } from "./shared/chat-history.ts";
 
-export type ChatMessage = { role: "user" | "assistant"; text: string };
-export type ChatHistory = Record<string, ChatMessage[]>;
+export type { ChatHistory, ChatMessage } from "./shared/chat-history.ts";
 export const MAX_CHAT_HISTORY_FILE_BYTES = 64 * 1024 * 1024;
 
 export function validateChatHistory(value: unknown): ChatHistory {
@@ -9,13 +9,15 @@ export function validateChatHistory(value: unknown): ChatHistory {
     throw new Error("チャット履歴が不正です。");
   }
   const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length > 200) throw new Error("チャット履歴の件数が多すぎます。");
+  if (entries.length > CHAT_HISTORY_LIMITS.versions) {
+    throw new Error("チャット履歴の件数が多すぎます。");
+  }
   let totalCharacters = 0;
   const history: ChatHistory = Object.create(null);
   for (const [versionName, messages] of entries) {
     if (
       !versionName || versionName.length > 200 || versionName === "__proto__" ||
-      !Array.isArray(messages) || messages.length > 1_000
+      !Array.isArray(messages) || messages.length > CHAT_HISTORY_LIMITS.messagesPerVersion
     ) {
       throw new Error("チャット履歴が不正です。");
     }
@@ -26,7 +28,9 @@ export function validateChatHistory(value: unknown): ChatHistory {
         throw new Error("チャット履歴が不正です。");
       }
       totalCharacters += text.length;
-      if (totalCharacters > 10_000_000) throw new Error("チャット履歴が大きすぎます。");
+      if (totalCharacters > CHAT_HISTORY_LIMITS.totalCharacters) {
+        throw new Error("チャット履歴が大きすぎます。");
+      }
       return { role, text };
     });
   }

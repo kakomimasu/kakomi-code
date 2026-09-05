@@ -22,6 +22,7 @@
     "npm:@types/react@^19.2.18": "19.2.18",
     "npm:happy-dom@^20.11.12": "20.11.12",
     "npm:monaco-editor@0.56": "0.56.0",
+    "npm:playwright@1.62.0": "1.62.0",
     "npm:react-dom@^19.2.8": "19.2.8_react@19.2.8",
     "npm:react@^19.2.8": "19.2.8",
     "npm:zod@^4.5.4": "4.5.4",
@@ -134,6 +135,11 @@
     "entities@7.0.1": {
       "integrity": "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="
     },
+    "fsevents@2.3.2": {
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "os": ["darwin"],
+      "scripts": true
+    },
     "happy-dom@20.11.12": {
       "integrity": "sha512-7+mrTTD+6fOG3dx0URrDLrCX8QDTE+YujSOQD4VPZcYze/yJ0vVhRKaIBTjqlk+R4NetxVz21odnevHYIjIJ+g==",
       "dependencies": [
@@ -156,6 +162,20 @@
         "dompurify",
         "marked"
       ]
+    },
+    "playwright-core@1.62.0": {
+      "integrity": "sha512-nsNRyq0r2zsG8AcRHWknc9QRA5XCueC7gWMrs+Gx2tlZn9hcl8zudfh00lhJPY1DE7NmZ6bDsT9g2yey8mXljA==",
+      "bin": true
+    },
+    "playwright@1.62.0": {
+      "integrity": "sha512-Z14dG305dgaLu6foB1TXQagFiW8JfSUIUaUuPaKQ6NtBPKF1P/qXcqfh6c6K/icPqdy37JmjbiBXf6JNg6Sylw==",
+      "dependencies": [
+        "playwright-core"
+      ],
+      "optionalDependencies": [
+        "fsevents"
+      ],
+      "bin": true
     },
     "react-dom@19.2.8_react@19.2.8": {
       "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
@@ -207,6 +227,7 @@
       "npm:@types/react@^19.2.18",
       "npm:happy-dom@^20.11.12",
       "npm:monaco-editor@0.56",
+      "npm:playwright@1.62.0",
       "npm:react-dom@^19.2.8",
       "npm:react@^19.2.8",
       "npm:zod@^4.5.4",

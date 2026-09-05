@@ -1,4 +1,5 @@
 import { assertEquals } from "@std/assert";
+import { validateChatHistory } from "../desktop/chat_history.ts";
 import { CHAT_HISTORY_LIMITS, createChatHistoryPayload } from "../desktop/ui/chat-history.ts";
 import { createAppStore } from "../desktop/ui/hooks/use-app-store.tsx";
 import { canApplyLoadedSource } from "../desktop/ui/source-load.ts";
@@ -69,6 +70,7 @@ Deno.test("チャット履歴は空の版を除外して保存上限内に収め
   assertEquals(Object.keys(payload).length, CHAT_HISTORY_LIMITS.versions);
   assertEquals(payload[preferred.name], [{ role: "user", text: "idea-0" }]);
   assertEquals(payload[versions[1].name], undefined);
+  assertEquals(validateChatHistory(payload), payload);
 
   const overflowingMessages = Array.from(
     { length: CHAT_HISTORY_LIMITS.messagesPerVersion + 2 },
@@ -84,6 +86,7 @@ Deno.test("チャット履歴は空の版を除外して保存上限内に収め
     CHAT_HISTORY_LIMITS.messagesPerVersion,
   );
   assertEquals(messageLimitedPayload[preferred.name][0].text, "2");
+  assertEquals(validateChatHistory(messageLimitedPayload), messageLimitedPayload);
 
   const millionCharacters = "x".repeat(1_000_000);
   const characterLimitedPayload = createChatHistoryPayload(
@@ -97,4 +100,5 @@ Deno.test("チャット履歴は空の版を除外して保存上限内に収め
     preferred.path,
   );
   assertEquals(characterLimitedPayload[preferred.name].length, 10);
+  assertEquals(validateChatHistory(characterLimitedPayload), characterLimitedPayload);
 });

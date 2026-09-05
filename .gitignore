@@ -8,5 +8,6 @@
 /app.exe
 /dist/
 /website/dist/
+/e2e-results/
 node_modules/
 versions/*

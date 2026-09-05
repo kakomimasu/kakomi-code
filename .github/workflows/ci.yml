@@ -33,6 +33,18 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-deno-v2-
       - name: Verify desktop
         run: deno task verify:desktop
+      - name: Install E2E Chromium
+        run: deno task e2e:install --with-deps
+      - name: Test browser workflows
+        run: deno task test:e2e
+      - name: Upload E2E failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: e2e-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   website:
     runs-on: ubuntu-latest

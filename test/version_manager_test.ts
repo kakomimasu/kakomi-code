@@ -266,6 +266,27 @@ Deno.test("名前変更では絵文字を途中で分割せず40文字まで保�
   }
 });
 
+Deno.test("プロジェクトへの別名パスでも名前変更の戻り値と一覧のパスが一致する", async () => {
+  const workspace = await Deno.makeTempDir();
+  try {
+    const project = join(workspace, "project");
+    const alias = join(workspace, "alias");
+    await Deno.mkdir(join(project, "template"), { recursive: true });
+    await Deno.writeTextFile(join(project, "template/main.ts"), "// template\n");
+    await Deno.symlink(await Deno.realPath(project), alias, { type: "dir" });
+    await initializeProject(alias);
+    const created = await createVersion(alias, "元の名前");
+    const renamed = await renameVersion(alias, created.path, "新しい名前");
+    const listed = (await listVersions(alias)).find((version) => version.name === renamed.name);
+    assertEquals(renamed, listed);
+    assertEquals(renamed.path, join(alias, "versions/v002-新しい名前"));
+    assertEquals(await Deno.readTextFile(join(renamed.path, "main.ts")), "// template\n");
+    assertEquals(await renameVersion(alias, renamed.path, "新しい名前"), renamed);
+  } finally {
+    await Deno.remove(workspace, { recursive: true });
+  }
+});
+
 Deno.test("名前変更先が存在する場合は元の版を維持する", async () => {
   const projectDir = await Deno.makeTempDir();
   try {

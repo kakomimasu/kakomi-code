@@ -193,11 +193,14 @@ export async function renameVersion(
 
   const name = `v${number}-${versionLabel(label)}`;
   const renamed = join(dirname(target), name);
-  if (renamed === target) return { name, path: renamed, ready: true };
+  // Keep the same path spelling as listVersions/createVersion, including a
+  // project reached through a symlink (for example /var on macOS).
+  const version = { name, path: join(resolve(projectDir), "versions", name), ready: true };
+  if (renamed === target) return version;
   if (await exists(renamed)) throw new Error("同じ名前のバージョンがすでにあります。");
 
   await Deno.rename(target, renamed);
-  return { name, path: renamed, ready: true };
+  return version;
 }
 
 /** Delete one managed version after confirming it is a direct child of versions/. */

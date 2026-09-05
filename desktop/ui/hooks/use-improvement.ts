@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { callDesktop } from "../api.ts";
 import { limitMessagesByVersion } from "../chat-history.ts";
+import type { Message } from "../types.ts";
 import { errorMessage } from "./helpers.ts";
 import type { AppStore } from "./use-app-store.tsx";
 
@@ -17,6 +18,22 @@ export function useImprovement(
 ) {
   const improving = useRef(false);
   const { updateChat, updateShell } = store.getState();
+
+  function recordResult(versionDir: string, messages: Message[], text: string) {
+    const current = store.getState();
+    updateChat({
+      messagesByVersion: limitMessagesByVersion(
+        current.dashboard,
+        {
+          ...current.messagesByVersion,
+          [versionDir]: [...messages, { role: "assistant", text }],
+        },
+        versionDir,
+      ),
+      codingAgentResult: { versionDir, text },
+    });
+    return persistHistory();
+  }
 
   async function improve() {
     const initial = store.getState();
@@ -57,19 +74,7 @@ export function useImprovement(
           "improveWithAgent",
           [{ idea, versionDir, agent: active.agent, model: active.models[active.agent] || "" }],
         );
-        const latest = store.getState();
-        updateChat({
-          messagesByVersion: limitMessagesByVersion(
-            latest.dashboard,
-            {
-              ...latest.messagesByVersion,
-              [versionDir]: [...messages, { role: "assistant", text: result.output }],
-            },
-            versionDir,
-          ),
-          codingAgentResult: { versionDir, text: result.output },
-        });
-        const saved = await persistHistory();
+        const saved = await recordResult(versionDir, messages, result.output);
         updateShell({
           status: result.cancelled
             ? saved ? "改善を停止しました。" : "改善を停止しましたが、履歴を保存できませんでした。"
@@ -79,19 +84,7 @@ export function useImprovement(
         });
       } catch (error) {
         const message = `エラー: ${errorMessage(error)}`;
-        const latest = store.getState();
-        updateChat({
-          messagesByVersion: limitMessagesByVersion(
-            latest.dashboard,
-            {
-              ...latest.messagesByVersion,
-              [versionDir]: [...messages, { role: "assistant", text: message }],
-            },
-            versionDir,
-          ),
-          codingAgentResult: { versionDir, text: message },
-        });
-        const saved = await persistHistory();
+        const saved = await recordResult(versionDir, messages, message);
         updateShell({
           status: message + (saved ? "" : "（チャット履歴も保存できませんでした）"),
         });

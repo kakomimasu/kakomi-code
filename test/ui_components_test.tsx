@@ -493,6 +493,114 @@ Deno.test("改善ボタンを続けて押してもコーディングAIを二重�
   }
 });
 
+Deno.test("改善の成功・停止・失敗を履歴へ反映し、保存失敗後も操作できる", async (test) => {
+  const cases = [
+    {
+      outcome: "success",
+      text: "改善しました。",
+      status: "改善が完了しました。",
+      unsavedStatus: "改善は完了しましたが、履歴を保存できませんでした。",
+    },
+    {
+      outcome: "cancelled",
+      text: "ここまで変更しました。",
+      status: "改善を停止しました。",
+      unsavedStatus: "改善を停止しましたが、履歴を保存できませんでした。",
+    },
+    {
+      outcome: "error",
+      text: "エラー: 接続できませんでした",
+      status: "エラー: 接続できませんでした",
+      unsavedStatus: "エラー: 接続できませんでした（チャット履歴も保存できませんでした）",
+    },
+  ];
+  for (const scenario of cases) {
+    for (const saved of [true, false]) {
+      await test.step(`${scenario.outcome} / 保存${saved ? "成功" : "失敗"}`, async () => {
+        const { host, root } = createTestRoot();
+        browserWindow.localStorage.clear();
+        const store = createAppStore();
+        const version = { path: "versions/test-agent", name: "v001-test-agent" };
+        const other = { path: "versions/other", name: "v002-other" };
+        const previous = [{ role: "assistant" as const, text: "前回の改善" }];
+        store.setState({
+          dashboard: { projectDir: "/project", versions: [version, other] },
+          selected: version.path,
+          idea: "高得点を優先する",
+          messagesByVersion: { [version.path]: previous, [other.path]: previous },
+        });
+        const improvements: Promise<void>[] = [];
+        const loadedVersions: (string | undefined)[] = [];
+        const payloads: unknown[] = [];
+        const originalBindings = Object.getOwnPropertyDescriptor(globalThis, "bindings");
+        Object.defineProperty(globalThis, "bindings", {
+          configurable: true,
+          value: {
+            saveChatHistory(payload: unknown) {
+              payloads.push(payload);
+              if (!saved) return Promise.reject(new Error("保存できませんでした"));
+              return Promise.resolve({ message: "保存しました。" });
+            },
+            improveWithAgent() {
+              if (scenario.outcome === "error") {
+                return Promise.reject(new Error("接続できませんでした"));
+              }
+              return Promise.resolve({
+                output: scenario.text,
+                cancelled: scenario.outcome === "cancelled",
+              });
+            },
+          },
+        });
+        try {
+          flushSync(() =>
+            root.render(
+              <ChatHookHarness
+                store={store}
+                source={{
+                  loadSource(versionPath) {
+                    loadedVersions.push(versionPath);
+                    return Promise.resolve();
+                  },
+                  saveIfDirty: () => Promise.resolve(true),
+                }}
+                improvements={improvements}
+              />,
+            )
+          );
+          const improve = host.querySelector<HTMLButtonElement>("[data-chat-improve]");
+          assertExists(improve);
+          flushSync(() => improve.click());
+          await Promise.all(improvements);
+
+          const expectedMessages = [
+            ...previous,
+            { role: "user", text: "高得点を優先する" },
+            { role: "assistant", text: scenario.text },
+          ];
+          const state = store.getState();
+          assertEquals(state.messagesByVersion[version.path], expectedMessages);
+          assertEquals(state.messagesByVersion[other.path], previous);
+          assertEquals(state.codingAgentResult, { versionDir: version.path, text: scenario.text });
+          assertEquals(state.status, saved ? scenario.status : scenario.unsavedStatus);
+          assertEquals(state.busy, false);
+          assertEquals(state.codingAgentRunning, false);
+          assertEquals(loadedVersions, [version.path]);
+          assertEquals(payloads.length, 2);
+          assertEquals(payloads[1], {
+            [version.name]: expectedMessages,
+            [other.name]: previous,
+          });
+        } finally {
+          if (originalBindings) Object.defineProperty(globalThis, "bindings", originalBindings);
+          else delete (globalThis as Record<string, unknown>).bindings;
+          flushSync(() => root.unmount());
+        }
+      });
+    }
+  }
+});
+
 Deno.test("ソースタブへ戻っても未保存の編集内容を再読み込みで上書きしない", async () => {
   browserWindow.localStorage.clear();
   const store = createAppStore();
