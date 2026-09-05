@@ -44,8 +44,8 @@
     "verify:desktop": "deno task fmt:check && deno task lint && deno task check && deno task --frozen ui:build && deno task test",
     "verify:website": "deno task website:check && deno task website:build",
     "verify": "deno task verify:desktop && deno task verify:website",
-    "e2e:install": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run --allow-sys npm:playwright@1.62.0 install chromium --only-shell",
-    "test:e2e": "deno task --frozen ui:build && deno test --allow-env --allow-read --allow-write --allow-run --allow-sys --allow-net=127.0.0.1 e2e"
+    "e2e:install": "deno run --allow-all npm:playwright@1.62.0 install chromium --only-shell",
+    "test:e2e": "deno task --frozen ui:build && deno test --allow-all e2e"
   },
   "fmt": {
     "lineWidth": 100,

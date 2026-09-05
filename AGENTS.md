@@ -85,6 +85,8 @@ E2Eは通常のテスト・`verify` とは別に `deno task test:e2e` で実行�
 
 ## E2Eテストを変更するとき
 
+- PlaywrightはLinuxでWSL判定用の `/proc` を参照するため、`e2e:install` と `test:e2e`
+  の実行プロセスには `--allow-all` が必要。これは開発用E2Eの例外であり、対戦AIの権限へ適用しない。
 - `e2e/fixture.ts` の一時フォルダーを使い、利用者の `versions/` やホーム内の設定を読み書きしない。
 - ファイル操作は本番と同じ `desktop/workspace_api.ts` と `desktop/local_server.ts`
   を通す。トークン・Origin・管理対象パスの検証をテスト用に省略しない。
